@@ -1,0 +1,297 @@
+
+Healthy Hunger – Project Scope & Requirements
+4 Oct 2026 · @Lay Patel
+One web app for Healthy Hunger: a public landing page, a QR menu where customers order for their table or for parcel, and a staff dashboard that takes those orders and keeps customer records.
+Goals
+Version 1 is done when a customer can scan a table QR, browse the menu, place an order, and see it land on the staff screen within seconds.
+1. Landing page that introduces the café, its promise (100% veg, protein-forward), location, hours and contact.
+2. QR menu that opens on a phone in under 2 seconds and shows each item's veg mark, description, protein, calories and ₹ price.
+3. Ordering for two types: dine-in (linked to a table number) and parcel (takeaway).
+4. Admin dashboard where staff see new orders live, move them through statuses, and mark them paid.
+5. Customer records built from orders: name, phone, email, visit count and spend.
+6. Menu control so the owner can change prices, mark items sold out and add new items without a developer.
+At a glance
+Customers and staff use the same Next.js app; the menu, orders and customer records all live in one PostgreSQL database.
+Users and roles
+Three kinds of people use the app. Customers never log in; staff and the owner do.
+Role
+How they get in
+What they can do
+Customer
+Scans the table QR or opens the website
+Browse the menu, filter it, add to cart, place a dine-in or parcel order, see their order status
+Staff (counter / kitchen)
+Login with phone or username + password
+See live orders, accept, mark preparing / ready / served, mark paid, cancel with a reason, mark items sold out
+Owner (admin)
+Login + password
+Everything staff can do, plus edit the menu and prices, manage tables and QR codes, view customers, view sales reports, manage staff accounts, edit café details
+Landing page and QR menu
+The landing page and the menu live in the same site. The menu is the page most people see, so it is designed for phones first.
+Landing page (/)
+• Hero with café name, one-line promise and a "View menu" button
+• "Today's Pick" card with its nutrition label
+• Three promise points: 100% vegetarian, protein from real food, fresh daily
+• Bestsellers strip (pulled from the menu, not typed twice)
+• Visit us: address, map link, hours, phone, WhatsApp, Instagram
+• Footer
+Menu (/menu, and /t/{table} from a table QR)
+• Category tabs: Oat bowls, Sandwiches, Smoothies, Salads, Fruit bowls, Add-ons
+• Filters: High protein (15 g+), Light (under 300 kcal), Bestseller
+• Search by item name
+• Each item card shows: veg symbol, name, short description, protein (g), calories (kcal), price (₹), tags (High protein, Bestseller), photo (optional), and a Sold out state
+• Item detail sheet: bigger photo, ingredients, add-ons to pick, quantity, "Add to cart"
+• Sticky cart bar at the bottom with item count and total
+• The nutrition note always shows at the bottom: "Protein and calorie values are approximate, not exact. They can vary with portion size, ingredients and seasonal fruits."
+• Light and dark mode
+• Works as view-only if ordering is switched off by the owner
+Ordering
+Every order is either Dine-in (tied to a table) or Parcel (takeaway). Payment is at the counter in v1 (cash or UPI); online payment comes later.
+Each table gets its own QR code that opens /t/{table}, so the table number fills in by itself. A general QR (counter, flyers, Instagram) opens /menu, where the customer picks Dine-in + table or Parcel.
+Field
+Dine-in
+Parcel
+Name
+Required
+Required
+Phone (10-digit Indian mobile)
+Required
+Required
+Email
+Optional
+Optional
+Table number
+Auto from QR
+—
+Pickup time
+—
+ASAP or a chosen time slot
+Note to kitchen
+Optional
+Optional
+Marketing consent tick box
+Optional, unticked by default
+Optional, unticked by default
+A returning customer types their phone number and the name and email fill in for them. The phone number is the customer's ID.
+Order status flow
+1. New – placed by the customer; the dashboard plays a sound
+2. Accepted – staff confirm it (and confirm the customer is at the table or will collect)
+3. Preparing
+4. Ready – for parcel, the customer is told it is ready to collect
+5. Served / Picked up
+6. Paid – cash, UPI or card recorded
+An order can be Cancelled from New, Accepted or Preparing, with a reason. After placing, the customer sees an order number and a live status page at /order/{id}.
+Guard rails against fake orders: one open order per table at a time (staff can add items to it), a short limit on orders per phone number per hour, and staff must accept before the kitchen starts.
+Admin dashboard
+The dashboard (/admin) opens on the Live orders screen, built for a tablet or laptop at the counter. It updates on its own with no page refresh.
+Module
+What it shows and does
+Who
+Live orders – Tables view
+A grid of table cards (T1, T2 …). Each card shows Free / Ordered / Preparing / Ready / Bill pending, the items, the total and the time since ordering. Tap a card to change status, add items or mark paid.
+Staff, Owner
+Live orders – Parcel lane
+A separate column of parcel orders sorted by pickup time, with customer name and phone
+Staff, Owner
+Live orders – Board view
+The same orders as columns: New → Accepted → Preparing → Ready → Done
+Staff, Owner
+New order alert
+Sound + highlight for new orders until someone accepts
+Staff, Owner
+Counter order
+Staff can enter an order for a walk-in customer (same form)
+Staff, Owner
+Order history
+Search by date, order number, phone, table, type, status; print or reprint a bill / KOT
+Staff, Owner
+Menu manager
+Add, edit, hide items; categories; prices; protein and kcal; tags; photos; add-ons; sold-out switch
+Owner (sold-out: Staff too)
+Tables & QR
+Add or rename tables; download a print-ready QR card per table
+Owner
+Customers
+List with search; profile with order history, visit count, total spend, last visit, consent; export to CSV
+Owner
+Reports
+Today's sales, orders by type, top items, sales by hour, sales by day / month
+Owner
+Settings
+Café details (address, phone, hours), ordering on/off, staff accounts, tax settings
+Owner
+Customer data
+A customer record is created or updated automatically each time an order is placed with a phone number. Only the owner can see the full customer list.
+• Stored: name, phone, email, first visit, last visit, number of orders, total spend, favourite items, staff notes, marketing consent (yes / no and the date given)
+• Consent: the order form says why we collect phone and email (to manage the order and contact the customer about it). Offers by WhatsApp, SMS or email go only to customers who ticked the consent box.
+• Privacy: a short privacy note linked in the footer and the order form. The owner can delete a customer's data on request. This follows the basic ideas of India's Digital Personal Data Protection Act, 2023 (consent, a clear purpose, deletion on request); have it checked before launch.
+• Security: phone numbers are partly hidden in staff views (98xxxxxx21); full numbers and CSV export are for the owner only.
+Design
+The site uses the café wall palette so the website feels like the room: modern, earthy, premium, warm, minimal. Contrast ratios below were checked against the WCAG AA rule (4.5:1 for body text).
+Colour
+Hex
+Share
+Where it goes on the site
+Text on it
+Slate Grey
+#65676B
+60%
+Main surfaces: landing hero, section bands, admin sidebar
+White (5.7:1)
+Charcoal Black
+#2D2E2F
+20%
+Headings, body text on light areas, dark mode background, sticky cart bar
+Warm Ivory (9.7:1)
+Walnut Brown
+#9C795F
+10%
+Accents: tags, dividers, icons, active tab underline
+Charcoal only for large text (3.4:1)
+Warm Ivory
+#DBDAD5
+10%
+Menu cards, page background in light mode
+Charcoal (9.7:1)
+Deep Walnut
+#7E553C
+Accent
+Primary buttons ("Add", "Place order"), price highlights
+White (6.5:1)
+Stone Grey
+#85878A
+Accent
+Borders, muted labels, disabled states
+Not for text
+Warm Beige
+#B9B8B4
+Accent
+Chips, filters, admin table stripes
+Charcoal (6.9:1)
+• Status colours in the admin (New, Preparing, Ready, Cancelled) need extra signal colours; they will be muted to fit the palette and always paired with a text label.
+• The veg symbol stays the standard green square-and-dot, whatever the palette.
+• Fonts: keep Bricolage Grotesque (headings), Figtree (body) and IBM Plex Mono (numbers) from the current site, unless the owner wants a change.
+• The old site's leaf green and turmeric yellow are replaced by this palette (see Open questions).
+Data model
+Ten tables cover version 1. Prices are copied into each order line so old bills never change when a price changes.
+Table
+Key fields
+Links to
+Category
+name, sort order, visible
+Menu items
+MenuItem
+name, description, price (₹), protein (g), kcal, photo, tags (bestseller, high-protein), is_veg, available, sort order
+Category, Add-ons
+AddOn
+name, price, protein, kcal, available
+Menu items (many-to-many)
+CafeTable
+number / label, seats, QR slug, active
+Orders
+Customer
+name, phone (unique), email, marketing consent + date, notes, first / last visit, order count, total spend
+Orders
+Order
+order number, type (dine-in / parcel), status, table, pickup time, note, subtotal, tax, total, payment method, paid at, created at
+Customer, Table, Order items
+OrderItem
+item name, unit price, quantity, chosen add-ons, line total
+Order, Menu item
+OrderStatusLog
+from status, to status, changed by, time
+Order, Staff user
+StaffUser
+name, phone / username, password hash, role (staff / owner), active
+Status log
+CafeSettings
+name, address, phone, WhatsApp, Instagram, hours, ordering on/off, tax %
+—
+Quality requirements
+Area
+Requirement
+Speed
+Menu loads in under 2 s on a 4G phone; images compressed (WebP) and lazy-loaded
+Phones first
+Works from 360 px wide; large tap targets; no sideways scrolling
+Live orders
+New orders show on the dashboard within 5 s
+Reliability
+If the internet drops, the dashboard shows "offline" clearly and catches up when it is back
+Security
+HTTPS everywhere; hashed passwords; admin pages need login; rate limits on order and login forms; customer data only for the owner
+Backups
+Automatic daily database backup, kept for 30 days
+SEO
+Landing page has title, description, Google Maps link and social share image so it shows well on Google and WhatsApp
+Language
+Simple English with Indian food names in v1; Hindi / Gujarati menu as a later option
+Accessibility
+Text contrast at least 4.5:1; every status shown with words, not just colour
+Phases
+Version 1 is everything needed to take real orders on opening day; the rest waits until the café is running.
+Phase
+What ships
+Done when
+1. Foundation
+Project setup, database, staff login, menu manager, menu data moved from the current site
+Owner can edit the full menu in the dashboard
+2. Customer site
+Landing page, QR menu, filters, cart, dine-in and parcel order form, order status page
+A test order can be placed from a phone
+3. Live dashboard
+Tables view, parcel lane, board view, sound alerts, status changes, mark paid, counter orders
+Staff run a full mock service of 20 orders without help
+4. Customers & reports
+Customer list and profiles, CSV export, daily sales and top items
+Owner can see yesterday's sales and repeat customers
+5. Launch
+Per-table QR cards printed, server deploy, domain + HTTPS, backups, privacy note
+Live at the café domain on opening day
+Later
+Online UPI payment (e.g. Razorpay), WhatsApp order updates, kitchen screen, loyalty points, offers and coupons, Hindi / Gujarati menu, printer integration for KOT
+Decided after the first month of real orders
+Tech stack
+Recommendation: build it in Next.js alone, with PostgreSQL. One café, one menu and a few staff do not need a separate backend. One codebase means one deploy, one login system, and roughly half the work of Next.js + Django.
+
+Next.js only (recommended)
+Next.js + Django
+Codebases to build and deploy
+1
+2 (frontend + API), with CORS and token login between them
+Time to opening day
+Shorter
+About 1.5–2× longer for the same features
+Admin dashboard
+Custom pages in Next.js
+Custom pages in Next.js anyway; Django admin helps only for back-office data editing
+Live orders
+Polling every 5 s, or Server-Sent Events
+Django Channels + Redis, or polling
+Server cost
+One small VPS
+A bigger VPS or two services
+Best when
+One café, web only, small team
+Several branches, a mobile app, or heavy reporting in Python
+The stack, piece by piece
+• Framework: Next.js (App Router) with TypeScript. The landing page and menu are pre-rendered for speed and refreshed when the owner edits the menu.
+• Server logic: Server Actions and Route Handlers for orders, status changes and admin actions; Zod to check every form.
+• Database: PostgreSQL with Prisma (schema and migrations in one place).
+• Login: Auth.js with username / password for staff and owner, and role checks on every admin page and action.
+• Live orders: start with the dashboard asking for new orders every 5 seconds (simple and reliable); move to Server-Sent Events later if needed.
+• UI: Tailwind CSS with the palette as design tokens, plus shadcn/ui for dashboard tables, dialogs and forms.
+• Images: stored on the server (or Cloudflare R2) and served through the Next.js image optimiser.
+• Hosting: one Linux VPS in an India region (Mumbai) running Docker Compose: Next.js + PostgreSQL + Caddy for automatic HTTPS, with a daily database backup job. Vercel + a hosted Postgres is the no-server-admin alternative.
+When to add Django later: if the café grows to several branches, gets a mobile app, or needs heavy data work, a Django + Django REST Framework API can be added behind the same Next.js frontend. Starting with a clean database schema keeps that move simple.
+Open questions
+[ ] QR codes: the printed cards point to the current artifact link. The new site needs a domain and one QR per table, so the cards will be reprinted. How many tables?
+[ ] Domain name: e.g. healthyhunger.in. Which one, and who buys it?
+[ ] Dine-in details: should dine-in customers have to give a phone number, or only parcel customers?
+[ ] Payment: counter only (cash / UPI) for v1, or online UPI from day one?
+[ ] Tax: is the café GST-registered? Should bills show GST?
+[ ] Bills and KOT: is there a thermal printer at the counter or in the kitchen?
+[ ] Brand colours: fully replace leaf green and turmeric yellow with the wall palette, or keep one as a small accent?
+[ ] Pending café details: address, phone, WhatsApp, Instagram handle, final hours, final prices.
+[ ] Staff: how many staff logins at launch?
+[ ] Opening date: sets the deadline for phases 1–5.

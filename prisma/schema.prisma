@@ -1,0 +1,217 @@
+// Healthy Hunger – data model (doc/goal → Data model).
+// Money is stored in paise (Int) so totals never suffer from floating point.
+// Targets PostgreSQL 14+.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  STAFF
+  OWNER
+}
+
+enum OrderType {
+  DINE_IN
+  PARCEL
+}
+
+enum OrderStatus {
+  NEW
+  ACCEPTED
+  PREPARING
+  READY
+  SERVED // served at the table, or picked up for parcel
+  PAID
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String     @unique
+  sortOrder Int        @default(0)
+  visible   Boolean    @default(true)
+  items     MenuItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model MenuItem {
+  id           String      @id @default(cuid())
+  categoryId   String
+  category     Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  name         String
+  description  String      @default("")
+  ingredients  String[]
+  pricePaise   Int
+  proteinG     Int         @default(0)
+  kcal         Int         @default(0)
+  photo        String? // path under UPLOAD_DIR, served at /media/…
+  isBestseller Boolean     @default(false)
+  isVeg        Boolean     @default(true)
+  available    Boolean     @default(true) // false = sold out (staff can toggle)
+  visible      Boolean     @default(true) // false = hidden from the menu (owner)
+  sortOrder    Int         @default(0)
+  addOns       AddOn[]
+  orderItems   OrderItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([categoryId, sortOrder])
+}
+
+model AddOn {
+  id         String     @id @default(cuid())
+  name       String
+  pricePaise Int
+  proteinG   Int        @default(0)
+  kcal       Int        @default(0)
+  available  Boolean    @default(true)
+  sortOrder  Int        @default(0)
+  menuItems  MenuItem[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model CafeTable {
+  id        String   @id @default(cuid())
+  label     String   @unique // "T1", "Window 2" …
+  seats     Int      @default(2)
+  qrSlug    String   @unique // opens /t/{qrSlug}
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id               String    @id @default(cuid())
+  name             String
+  phone            String    @unique // 10-digit Indian mobile – the customer's ID
+  email            String?
+  marketingConsent Boolean   @default(false)
+  consentAt        DateTime?
+  notes            String?
+  firstVisitAt     DateTime  @default(now())
+  lastVisitAt      DateTime  @default(now())
+  orderCount       Int       @default(0)
+  totalSpendPaise  Int       @default(0)
+  orders           Order[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Order {
+  id            String           @id @default(cuid())
+  number        Int              @unique @default(autoincrement())
+  type          OrderType
+  status        OrderStatus      @default(NEW)
+  tableId       String?
+  table         CafeTable?       @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  customerId    String?
+  customer      Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  // snapshot of who ordered, kept even if the customer record is deleted on request
+  customerName  String
+  customerPhone String?
+  pickupAt      DateTime? // parcel: null = ASAP
+  note          String?
+  subtotalPaise Int
+  taxPaise      Int              @default(0)
+  totalPaise    Int
+  paymentMethod PaymentMethod?
+  paidAt        DateTime?
+  cancelReason  String?
+  createdById   String? // staff member for counter orders
+  createdBy     StaffUser?       @relation("CounterOrders", fields: [createdById], references: [id], onDelete: SetNull)
+  items         OrderItem[]
+  statusLogs    OrderStatusLog[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([customerPhone])
+  @@index([tableId, status])
+}
+
+model OrderItem {
+  id             String    @id @default(cuid())
+  orderId        String
+  order          Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId     String?
+  menuItem       MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  // copied at order time so old bills never change when the menu does
+  itemName       String
+  unitPricePaise Int // item + chosen add-ons
+  quantity       Int
+  addOns         Json      @default("[]") // [{ id, name, pricePaise }]
+  lineTotalPaise Int
+}
+
+model OrderStatusLog {
+  id          String       @id @default(cuid())
+  orderId     String
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  changedById String?
+  changedBy   StaffUser?   @relation(fields: [changedById], references: [id], onDelete: SetNull)
+  note        String?
+  createdAt   DateTime     @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model StaffUser {
+  id             String           @id @default(cuid())
+  name           String
+  username       String           @unique
+  phone          String?          @unique
+  passwordHash   String
+  role           Role             @default(STAFF)
+  active         Boolean          @default(true)
+  // bumped on password change / deactivation to invalidate existing sessions
+  sessionVersion Int              @default(1)
+  lastLoginAt    DateTime?
+  statusChanges  OrderStatusLog[]
+  counterOrders  Order[]          @relation("CounterOrders")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+/// Single row (id = 1) with the café's details and switches.
+model CafeSettings {
+  id              Int      @id @default(1)
+  name            String   @default("Healthy Hunger")
+  tagline         String   @default("Eat well, live well")
+  address         String   @default("")
+  mapUrl          String   @default("")
+  phone           String   @default("")
+  whatsapp        String   @default("")
+  instagram       String   @default("")
+  hours           Json     @default("[]") // [{ days, time }]
+  orderingEnabled Boolean  @default(true)
+  taxBasisPoints  Int      @default(0) // 500 = 5 %
+  todaysPickId    String?
+  updatedAt       DateTime @updatedAt
+}
+
+/// Fixed-window rate limiting for login and order forms.
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+}

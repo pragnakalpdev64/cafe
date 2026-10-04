@@ -1,0 +1,224 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-figtree);
+  --font-mono: var(--font-plex-mono);
+  --font-heading: var(--font-baloo);
+  --color-brand: var(--brand);
+  --color-brand-text: var(--brand-text);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-surface-accent: var(--surface-accent);
+  --color-cta: var(--cta);
+  --color-cta-foreground: var(--cta-foreground);
+  --color-hh-green: var(--hh-green);
+  --color-hh-green-light: var(--hh-green-light);
+  --color-hh-green-deep: var(--hh-green-deep);
+  --color-hh-orange: var(--hh-orange);
+  --color-hh-orange-light: var(--hh-orange-light);
+  --color-hh-ink: var(--hh-ink);
+  --color-veg: var(--hh-veg);
+  --color-status-new: var(--status-new);
+  --color-status-accepted: var(--status-accepted);
+  --color-status-preparing: var(--status-preparing);
+  --color-status-ready: var(--status-ready);
+  --color-status-done: var(--status-done);
+  --color-status-cancelled: var(--status-cancelled);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* Brand palette – see doc/brand-guide.jpg */
+  --hh-green: #15803d;
+  --hh-green-light: #22c55e;
+  --hh-green-deep: #0f5c2c;
+  --hh-orange: #ff8a00;
+  --hh-orange-light: #ffa933;
+  /* orange is too light for text on light backgrounds (2.2:1); this deeper tone passes AA */
+  --hh-orange-text: #c2410c;
+  --hh-ink: #1c2b22;
+  --hh-cream: #fff8ee;
+  --hh-veg: #0f8a3b;
+
+  --background: var(--hh-cream);
+  --foreground: var(--hh-ink);
+  --card: #ffffff;
+  --card-foreground: var(--hh-ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--hh-ink);
+  --primary: var(--hh-green);
+  --primary-foreground: #ffffff;
+  /* orange call-to-action: white text fails on orange, so it carries dark ink */
+  --cta: var(--hh-orange);
+  --cta-foreground: var(--hh-ink);
+  --secondary: #eef6ee;
+  --secondary-foreground: var(--hh-green-deep);
+  --muted: #f3ede3;
+  --muted-foreground: #566b5d;
+  --accent: #ffefd9;
+  --accent-foreground: var(--hh-ink);
+  --brand: var(--hh-orange);
+  --brand-text: var(--hh-orange-text);
+  --surface: var(--hh-green-deep);
+  --surface-foreground: #ffffff;
+  --surface-accent: #ffc870;
+  --destructive: #b42318;
+  --border: #eadfce;
+  --input: #e2d6c4;
+  --ring: var(--hh-green-light);
+
+  /* Order status signals – always paired with a text label */
+  --status-new: #1d63b8;
+  --status-accepted: #566b5d;
+  --status-preparing: #c2410c;
+  --status-ready: var(--hh-green);
+  --status-done: #7b8a80;
+  --status-cancelled: #b42318;
+
+  --chart-1: var(--hh-green);
+  --chart-2: var(--hh-orange);
+  --chart-3: var(--hh-green-light);
+  --chart-4: var(--hh-orange-light);
+  --chart-5: var(--hh-green-deep);
+  --radius: 0.875rem;
+  --sidebar: var(--hh-green-deep);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: var(--hh-orange);
+  --sidebar-primary-foreground: var(--hh-ink);
+  --sidebar-accent: #13703a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1d7a43;
+  --sidebar-ring: var(--hh-green-light);
+}
+
+.dark {
+  --background: #0e1a13;
+  --foreground: #eef5ef;
+  --card: #16251b;
+  --card-foreground: #eef5ef;
+  --popover: #16251b;
+  --popover-foreground: #eef5ef;
+  --primary: var(--hh-green);
+  --primary-foreground: #ffffff;
+  --cta: var(--hh-orange);
+  --cta-foreground: var(--hh-ink);
+  --secondary: #1d3325;
+  --secondary-foreground: #bbf7d0;
+  --muted: #1a2b20;
+  --muted-foreground: #a7b8ac;
+  --accent: #2a2416;
+  --accent-foreground: #eef5ef;
+  --brand: var(--hh-orange);
+  --brand-text: var(--hh-orange-light);
+  --surface: #0a2615;
+  --surface-foreground: #eef5ef;
+  --surface-accent: #ffc870;
+  --destructive: #f97066;
+  --border: #24392b;
+  --input: #2b4334;
+  --ring: var(--hh-green-light);
+  --status-new: #6ea8ff;
+  --status-accepted: #a7b8ac;
+  --status-preparing: var(--hh-orange-light);
+  --status-ready: var(--hh-green-light);
+  --status-done: #7b8a80;
+  --status-cancelled: #f97066;
+  --sidebar: #0a2615;
+  --sidebar-foreground: #eef5ef;
+  --sidebar-primary: var(--hh-orange);
+  --sidebar-primary-foreground: var(--hh-ink);
+  --sidebar-accent: #16251b;
+  --sidebar-accent-foreground: #eef5ef;
+  --sidebar-border: #1d3325;
+  --sidebar-ring: var(--hh-green-light);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@layer base {
+  h1, h2, h3, h4 {
+    @apply font-heading tracking-tight;
+  }
+  /* Baloo 2 sits tall in its line box – tighten headings */
+  h1, h2 {
+    line-height: 1.05;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--hh-orange) 40%, transparent);
+  }
+}
+
+@utility tabular {
+  font-family: var(--font-plex-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* "— EAT WELL, LIVE WELL —" brand tagline */
+@utility tagline {
+  font-family: var(--font-figtree);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
