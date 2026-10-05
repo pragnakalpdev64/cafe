@@ -1,5 +1,5 @@
 import "server-only";
-import type { OrderStatus, Role, SelectionStatus } from "@/generated/prisma/enums";
+import type { OrderStatus, OrderType, Role, SelectionStatus } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { maskPhone } from "@/lib/phone-mask";
 import type { SelectionLine } from "@/lib/validators/selection";
@@ -15,17 +15,29 @@ export type LiveSelection = {
   items: SelectionLine[];
 };
 
+export type LiveOrderItem = {
+  id: string;
+  /** null if the dish was deleted from the menu since */
+  itemId: string | null;
+  name: string;
+  quantity: number;
+  addOns: { id: string; name: string }[];
+  lineTotalPaise: number;
+};
+
 export type LiveOrder = {
   id: string;
   number: number;
+  type: OrderType;
   status: OrderStatus;
+  cancelReason: string | null;
   table: string | null;
   customerName: string;
   customerPhone: string | null;
   note: string | null;
   totalPaise: number;
   createdAt: string;
-  items: { id: string; name: string; quantity: number; addOns: string[]; lineTotalPaise: number }[];
+  items: LiveOrderItem[];
 };
 
 export type LiveBoard = { selections: LiveSelection[]; orders: LiveOrder[]; serverTime: string };
@@ -60,7 +72,9 @@ export async function getLiveBoard(role: Role): Promise<LiveBoard> {
     orders: orders.map((o) => ({
       id: o.id,
       number: o.number,
+      type: o.type,
       status: o.status,
+      cancelReason: o.cancelReason,
       table: o.table?.label ?? null,
       customerName: o.customerName,
       customerPhone: o.customerPhone && (role === "OWNER" ? o.customerPhone : maskPhone(o.customerPhone)),
@@ -69,9 +83,10 @@ export async function getLiveBoard(role: Role): Promise<LiveBoard> {
       createdAt: o.createdAt.toISOString(),
       items: o.items.map((i) => ({
         id: i.id,
+        itemId: i.menuItemId,
         name: i.itemName,
         quantity: i.quantity,
-        addOns: (i.addOns as { name: string }[]).map((a) => a.name),
+        addOns: (i.addOns as { id: string; name: string }[]).map((a) => ({ id: a.id, name: a.name })),
         lineTotalPaise: i.lineTotalPaise,
       })),
     })),

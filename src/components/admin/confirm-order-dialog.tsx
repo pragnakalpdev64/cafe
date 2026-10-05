@@ -1,9 +1,8 @@
 "use client";
 
-import { LoaderCircle, Trash2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { confirmSelection, lookupCustomer } from "@/app/admin/(dashboard)/actions";
-import { QuantityStepper } from "@/components/menu/quantity-stepper";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -11,16 +10,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { LiveSelection } from "@/lib/data/live";
+import type { PublicMenu } from "@/lib/data/menu";
 import { INDIAN_MOBILE } from "@/lib/validators/phone";
+import { ItemLinesEditor, toEditableLines } from "./item-lines-editor";
 
-type Props = { selection: LiveSelection | null; onClose: () => void; onConfirmed: (number: number) => void };
+type Props = {
+  selection: LiveSelection | null;
+  menu: PublicMenu;
+  onClose: () => void;
+  onConfirmed: (number: number) => void;
+};
 
-export function ConfirmOrderDialog({ selection, onClose, onConfirmed }: Props) {
+export function ConfirmOrderDialog({ selection, menu, onClose, onConfirmed }: Props) {
   return (
     <Dialog open={!!selection} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
         {/* keyed so each guest starts with a fresh form */}
-        {selection && <ConfirmForm key={selection.id} selection={selection} onConfirmed={onConfirmed} />}
+        {selection && (
+          <ConfirmForm key={selection.id} selection={selection} menu={menu} onConfirmed={onConfirmed} />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -28,12 +36,14 @@ export function ConfirmOrderDialog({ selection, onClose, onConfirmed }: Props) {
 
 function ConfirmForm({
   selection,
+  menu,
   onConfirmed,
 }: {
   selection: LiveSelection;
+  menu: PublicMenu;
   onConfirmed: (n: number) => void;
 }) {
-  const [items, setItems] = useState(() => selection.items.map((i, idx) => ({ ...i, key: idx })));
+  const [items, setItems] = useState(() => toEditableLines(selection.items));
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [visits, setVisits] = useState<number | null>(null);
@@ -83,42 +93,12 @@ function ConfirmForm({
     <form onSubmit={submit} className="space-y-4">
       <div>
         <DialogTitle className="text-xl">Confirm order · {title}</DialogTitle>
-        <DialogDescription>Check the items with the guest, then add their name and number.</DialogDescription>
+        <DialogDescription>
+          Check the items with the guest – change, remove or add – then add their name and number.
+        </DialogDescription>
       </div>
 
-      <ul className="divide-y divide-border rounded-2xl border border-border">
-        {items.map((it) => (
-          <li key={it.key} className="flex items-center gap-2 px-3 py-2">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">{it.name}</p>
-              {it.addOns.length > 0 && (
-                <p className="truncate text-xs text-muted-foreground">
-                  + {it.addOns.map((a) => a.name).join(", ")}
-                </p>
-              )}
-            </div>
-            <QuantityStepper
-              value={it.quantity}
-              min={1}
-              label={`Quantity of ${it.name}`}
-              onChange={(q) =>
-                setItems((list) => list.map((x) => (x.key === it.key ? { ...x, quantity: q } : x)))
-              }
-              className="h-9 [&_button]:size-9"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Remove ${it.name}`}
-              onClick={() => setItems((list) => list.filter((x) => x.key !== it.key))}
-            >
-              <Trash2 />
-            </Button>
-          </li>
-        ))}
-        {items.length === 0 && <li className="px-3 py-3 text-sm text-muted-foreground">No items left.</li>}
-      </ul>
+      <ItemLinesEditor lines={items} onChange={setItems} menu={menu} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">

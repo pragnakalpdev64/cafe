@@ -1,16 +1,17 @@
 "use client";
 
-import { BellRing, CircleCheck, ClipboardList, LoaderCircle, TriangleAlert } from "lucide-react";
+import { BellRing, ChefHat, CircleCheck, ClipboardList, LoaderCircle, TriangleAlert } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { setSelectionReady, syncSelection } from "@/app/selection-actions";
+import { type GuestOrder, getGuestOrders, setSelectionReady, syncSelection } from "@/app/selection-actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { type GuestSpot, itemCount, useCart } from "@/lib/cart-store";
 import { cn } from "@/lib/utils";
+import { guestStatusLabel, isActive, OrderTracker } from "./order-tracker";
 import { QuantityStepper } from "./quantity-stepper";
 
 export type TableOption = { slug: string; label: string };
@@ -30,8 +31,14 @@ export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTa
   const [open, setOpen] = useState(false);
   const [sync, setSync] = useState<Sync>("idle");
   const [readyPending, startReady] = useTransition();
+  const [guestOrders, setGuestOrders] = useState<GuestOrder[]>([]);
   const count = itemCount(lines);
   const latest = orders[0];
+  const orderIds = orders.map((o) => o.id).join(",");
+
+  const loadOrders = useCallback(async (ids: string) => {
+    setGuestOrders(ids ? await getGuestOrders(ids.split(",")) : []);
+  }, []);
 
   useEffect(() => {
     void Promise.resolve(useCart.persist.rehydrate()).then(() => setHydrated(true));
@@ -74,10 +81,11 @@ export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTa
     return () => clearTimeout(timer);
   }, [hydrated, lines, spot, clientId, count, setCode]);
 
-  // Hear about the cashier confirming this list (also catches up after being offline).
+  // Live: the cashier confirming this list, and every status change of this guest's orders
+  // (also catches up after being offline – the stream sends the current state on connect).
   useEffect(() => {
     if (!hydrated) return;
-    const source = new EventSource(`/api/guest/stream?cid=${clientId}`);
+    const source = new EventSource(`/api/guest/stream?cid=${clientId}&orders=${orderIds}`);
     source.addEventListener("confirmed", (e) => {
       const { orderId, number } = JSON.parse((e as MessageEvent).data) as { orderId: string; number: number };
       if (useCart.getState().orders.some((o) => o.id === orderId)) return;
@@ -85,8 +93,10 @@ export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTa
       shared.current = false;
       setOpen(true);
     });
+    source.addEventListener("order", () => void loadOrders(orderIds));
+    source.onopen = () => void loadOrders(orderIds);
     return () => source.close();
-  }, [hydrated, clientId, orderConfirmed]);
+  }, [hydrated, clientId, orderIds, orderConfirmed, loadOrders]);
 
   const markReady = (next: boolean) =>
     startReady(async () => {
@@ -96,12 +106,15 @@ export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTa
       else toast.error(res.error ?? "Couldn't reach the café. Try again.");
     });
 
-  const justConfirmed = showConfirmed && !!latest && count === 0;
+  const active = guestOrders.filter(isActive);
+  // with an empty list, the bar and sheet show the guest's orders instead
+  const tracking = count === 0 && (active.length > 0 || (showConfirmed && guestOrders.length > 0));
+  const headline = active[0] ?? guestOrders[0];
 
   return (
     <>
       <AnimatePresence>
-        {hydrated && (count > 0 || justConfirmed) && (
+        {hydrated && (count > 0 || tracking) && (
           <motion.div
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -138,20 +151,22 @@ export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTa
                     {count}
                   </span>
                 </motion.span>
+              ) : headline?.status === "PREPARING" ? (
+                <ChefHat className="size-6" aria-hidden />
               ) : (
                 <CircleCheck className="size-6" aria-hidden />
               )}
               <span className="flex-1">
                 <span className="block text-base leading-tight font-semibold">
                   {count === 0
-                    ? `Order #${latest?.number} confirmed`
+                    ? `Order #${headline?.number ?? latest?.number} · ${headline ? guestStatusLabel(headline) : "Confirmed"}`
                     : ready
                       ? "Staff are on the way"
                       : "Your list"}
                 </span>
                 <span className={cn("block text-xs", ready ? "text-hh-ink/75" : "text-white/80")}>
                   {count === 0
-                    ? "Add more items any time"
+                    ? "Tap to follow your order · add more any time"
                     : `${count} item${count === 1 ? "" : "s"}${spot?.kind === "table" ? ` · Table ${spot.label}` : spot?.kind === "takeaway" ? " · Takeaway" : ""}`}
                 </span>
               </span>
@@ -175,24 +190,21 @@ export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTa
           side="bottom"
           className="mx-auto max-h-[88svh] max-w-xl gap-0 overflow-y-auto rounded-t-[2rem] border-x p-0 sm:bottom-4 sm:rounded-[2rem] sm:border"
         >
-          {justConfirmed ? (
-            <div className="flex flex-col items-center px-6 pt-10 pb-8 text-center">
-              <CircleCheck className="size-14 text-hh-green dark:text-hh-green-light" aria-hidden />
-              <SheetTitle className="mt-3 font-heading text-3xl font-bold">
-                Order #{latest.number} confirmed
-              </SheetTitle>
-              <SheetDescription className="mt-2 max-w-sm text-base">
-                Your food is being prepared. Pay at the counter when you&apos;re done. Want something else?
-                Just add it to a new list.
+          {tracking ? (
+            <div className="px-5 pt-6 pb-6">
+              <SheetTitle className="font-heading text-2xl font-bold">Your orders</SheetTitle>
+              <SheetDescription className="mb-4">
+                Updates here as the kitchen works. Pay at the counter when you&apos;re done.
               </SheetDescription>
+              <OrderTracker orders={guestOrders} />
               <Button
-                className="mt-6 h-11 rounded-full px-8"
+                className="mt-5 h-11 w-full rounded-full"
                 onClick={() => {
                   dismissConfirmed();
                   setOpen(false);
                 }}
               >
-                Done
+                Add more items
               </Button>
             </div>
           ) : (
@@ -242,6 +254,13 @@ export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTa
                   </li>
                 ))}
               </ul>
+
+              {active.length > 0 && (
+                <div className="px-5 pt-5">
+                  <p className="mb-2 text-sm font-semibold text-muted-foreground">Already ordered</p>
+                  <OrderTracker orders={active} />
+                </div>
+              )}
 
               <div className="sticky bottom-0 mt-2 space-y-2 border-t border-border bg-popover/95 px-5 py-4 backdrop-blur">
                 <SyncLine sync={sync} hasSpot={!!spot} />

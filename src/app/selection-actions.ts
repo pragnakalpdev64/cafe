@@ -96,3 +96,47 @@ export async function setSelectionReady(
 function randomCode() {
   return 1000 + Math.floor(Math.random() * 9000);
 }
+
+export type GuestOrder = {
+  id: string;
+  number: number;
+  type: "DINE_IN" | "PARCEL";
+  status: "NEW" | "ACCEPTED" | "PREPARING" | "READY" | "SERVED" | "PAID" | "CANCELLED";
+  table: string | null;
+  cancelReason: string | null;
+  items: { name: string; quantity: number; addOns: string[] }[];
+};
+
+const GuestOrderIds = z.array(z.string().regex(/^[a-z0-9]{20,32}$/)).max(10);
+
+/** The guest's own orders for the status tracker. Order ids are the key; no prices are returned. */
+export async function getGuestOrders(ids: string[]): Promise<GuestOrder[]> {
+  const parsed = GuestOrderIds.safeParse(ids);
+  if (!parsed.success || parsed.data.length === 0) return [];
+  const orders = await db.order.findMany({
+    where: { id: { in: parsed.data } },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      number: true,
+      type: true,
+      status: true,
+      cancelReason: true,
+      table: { select: { label: true } },
+      items: { select: { itemName: true, quantity: true, addOns: true } },
+    },
+  });
+  return orders.map((o) => ({
+    id: o.id,
+    number: o.number,
+    type: o.type,
+    status: o.status,
+    table: o.table?.label ?? null,
+    cancelReason: o.cancelReason,
+    items: o.items.map((i) => ({
+      name: i.itemName,
+      quantity: i.quantity,
+      addOns: (i.addOns as { name: string }[]).map((a) => a.name),
+    })),
+  }));
+}

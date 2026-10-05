@@ -1,0 +1,38 @@
+import type { OrderStatus, OrderType } from "@/generated/prisma/enums";
+
+// The order lifecycle after the cashier confirms (status ACCEPTED). Pure, so it's unit-tested.
+//   dine-in:  ACCEPTED → PREPARING (in kitchen) → SERVED
+//   takeaway: ACCEPTED → PREPARING → READY (to collect) → SERVED (picked up)
+// Cancel is allowed until the food is served. PAID is set later by the bill.
+
+export type OrderAction = "toKitchen" | "served" | "readyToCollect" | "pickedUp";
+
+const NEXT: Record<OrderAction, { from: OrderStatus[]; to: OrderStatus; types: OrderType[] }> = {
+  toKitchen: { from: ["NEW", "ACCEPTED"], to: "PREPARING", types: ["DINE_IN", "PARCEL"] },
+  served: { from: ["PREPARING"], to: "SERVED", types: ["DINE_IN"] },
+  readyToCollect: { from: ["PREPARING"], to: "READY", types: ["PARCEL"] },
+  pickedUp: { from: ["READY"], to: "SERVED", types: ["PARCEL"] },
+};
+
+/** The status an action leads to, or null if it isn't allowed from here. */
+export function nextStatus(action: OrderAction, status: OrderStatus, type: OrderType): OrderStatus | null {
+  const rule = NEXT[action];
+  return rule.from.includes(status) && rule.types.includes(type) ? rule.to : null;
+}
+
+/** Actions staff can take on an order right now (in button order). */
+export function availableActions(status: OrderStatus, type: OrderType): OrderAction[] {
+  return (Object.keys(NEXT) as OrderAction[]).filter((a) => nextStatus(a, status, type) !== null);
+}
+
+export const canCancel = (status: OrderStatus) => ["NEW", "ACCEPTED", "PREPARING", "READY"].includes(status);
+
+/** Items can be changed only before the kitchen starts. */
+export const canEditItems = (status: OrderStatus) => status === "NEW" || status === "ACCEPTED";
+
+export const ACTION_LABEL: Record<OrderAction, string> = {
+  toKitchen: "Send to kitchen",
+  served: "Served",
+  readyToCollect: "Ready to collect",
+  pickedUp: "Picked up",
+};

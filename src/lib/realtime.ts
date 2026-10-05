@@ -1,6 +1,7 @@
 import "server-only";
 import { EventEmitter } from "node:events";
 import { Client } from "pg";
+import type { OrderStatus } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 
 // Live updates: actions publish small events through Postgres NOTIFY; each server
@@ -13,7 +14,7 @@ export type RealtimeEvent =
   /** a guest's live selection changed, became ready, or was removed */
   | { type: "selection"; selectionId: string }
   /** an order was created or changed; `selectionId` is set when it came from a guest's selection */
-  | { type: "order"; orderId: string; number: number; selectionId?: string };
+  | { type: "order"; orderId: string; number: number; status: OrderStatus; selectionId?: string };
 
 type Listener = (event: RealtimeEvent) => void;
 

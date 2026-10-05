@@ -5,12 +5,11 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { removeSelection } from "@/app/admin/(dashboard)/actions";
 import { Button } from "@/components/ui/button";
-import type { LiveBoard as LiveBoardData, LiveOrder, LiveSelection } from "@/lib/data/live";
-import { formatINR } from "@/lib/format";
-import { toRupees } from "@/lib/money";
+import type { LiveBoard as LiveBoardData, LiveSelection } from "@/lib/data/live";
+import type { PublicMenu } from "@/lib/data/menu";
 import { cn } from "@/lib/utils";
 import { ConfirmOrderDialog } from "./confirm-order-dialog";
-import { OrderStatusBadge } from "./order-status-badge";
+import { OrdersPanel } from "./orders-panel";
 
 type Connection = "live" | "reconnecting";
 
@@ -37,7 +36,7 @@ function chime(ctx: AudioContext) {
   });
 }
 
-export function LiveBoard({ initial }: { initial: LiveBoardData }) {
+export function LiveBoard({ initial, menu }: { initial: LiveBoardData; menu: PublicMenu }) {
   const [data, setData] = useState(initial);
   const [connection, setConnection] = useState<Connection>("live");
   const [skew, setSkew] = useState(() => Date.now() - new Date(initial.serverTime).getTime());
@@ -184,26 +183,11 @@ export function LiveBoard({ initial }: { initial: LiveBoardData }) {
         )}
       </section>
 
-      <section aria-labelledby="orders-h" className="space-y-3">
-        <h2 id="orders-h" className="text-lg font-bold">
-          Confirmed orders today{" "}
-          <span className="text-sm font-normal text-muted-foreground">{data.orders.length}</span>
-        </h2>
-        {data.orders.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-            No orders yet today.
-          </p>
-        ) : (
-          <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {data.orders.map((o) => (
-              <OrderCard key={o.id} order={o} />
-            ))}
-          </ul>
-        )}
-      </section>
+      <OrdersPanel orders={data.orders} menu={menu} onChanged={refresh} />
 
       <ConfirmOrderDialog
         selection={confirming}
+        menu={menu}
         onClose={() => setConfirming(null)}
         onConfirmed={(number) => {
           toast.success(`Order #${number} confirmed`);
@@ -297,43 +281,5 @@ function SelectionCard({
         </Button>
       </div>
     </article>
-  );
-}
-
-function OrderCard({ order: o }: { order: LiveOrder }) {
-  return (
-    <li className="rounded-3xl border border-border bg-card p-4">
-      <div className="flex items-start gap-2">
-        <div className="flex-1">
-          <p className="text-lg font-bold">
-            #{o.number} · {o.table ? `Table ${o.table}` : "Takeaway"}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {o.customerName}
-            {o.customerPhone && ` · ${o.customerPhone}`} ·{" "}
-            {new Date(o.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}
-          </p>
-        </div>
-        <OrderStatusBadge status={o.status} />
-      </div>
-      <ul className="mt-3 space-y-1 text-sm">
-        {o.items.map((i) => (
-          <li key={i.id} className="flex gap-2">
-            <span className="w-7 shrink-0 tabular font-bold text-brand-text">{i.quantity}×</span>
-            <span className="flex-1">
-              {i.name}
-              {i.addOns.length > 0 && (
-                <span className="block text-xs text-muted-foreground">+ {i.addOns.join(", ")}</span>
-              )}
-            </span>
-            <span className="tabular text-muted-foreground">{formatINR(toRupees(i.lineTotalPaise))}</span>
-          </li>
-        ))}
-      </ul>
-      {o.note && <p className="mt-2 rounded-xl bg-accent px-3 py-2 text-sm">Note: {o.note}</p>}
-      <p className="mt-3 border-t border-border pt-2 text-right tabular font-semibold">
-        {formatINR(toRupees(o.totalPaise))}
-      </p>
-    </li>
   );
 }
