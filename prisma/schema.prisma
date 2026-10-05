@@ -86,15 +86,16 @@ model AddOn {
 }
 
 model CafeTable {
-  id        String   @id @default(cuid())
-  label     String   @unique // "T1", "Window 2" …
-  seats     Int      @default(2)
-  qrSlug    String   @unique // opens /t/{qrSlug}
-  active    Boolean  @default(true)
-  sortOrder Int      @default(0)
-  orders    Order[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String      @id @default(cuid())
+  label      String      @unique // "T1", "Window 2" …
+  seats      Int         @default(2)
+  qrSlug     String      @unique // opens /t/{qrSlug}
+  active     Boolean     @default(true)
+  sortOrder  Int         @default(0)
+  orders     Order[]
+  selections Selection[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 }
 
 model Customer {
@@ -214,4 +215,18 @@ model RateLimit {
   key     String   @id
   count   Int
   resetAt DateTime
+}
+
+/// v1 (no ordering yet): a guest's picked items, one row per device, shown to staff.
+model Selection {
+  id        String     @id // random id kept on the guest's device
+  tableId   String?
+  table     CafeTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  phone     String? // takeaway guests without a table
+  // resolved on the server: [{ itemId, name, quantity, addOns: [{ id, name }] }]
+  items     Json
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([updatedAt])
 }

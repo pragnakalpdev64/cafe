@@ -18,7 +18,7 @@ import {
   type MenuItem,
 } from "@/lib/menu-types";
 import { cn } from "@/lib/utils";
-import { CartBar } from "./cart-bar";
+import { CartBar, type TableOption } from "./cart-bar";
 import { ItemSheet } from "./item-sheet";
 import { MenuItemCard } from "./menu-item-card";
 
@@ -41,11 +41,14 @@ type Props = {
   items: MenuItem[];
   addOns: AddOn[];
   orderingEnabled: boolean;
-  table?: string;
+  /** set when the guest scanned a table QR */
+  table?: TableOption;
+  /** active tables, so guests on /menu can say where they sit */
+  tables: TableOption[];
   initialItemId?: string;
 };
 
-export function MenuBrowser({ categories, items, addOns, orderingEnabled, table, initialItemId }: Props) {
+export function MenuBrowser({ categories, items, addOns, orderingEnabled, table, tables, initialItemId }: Props) {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filter[]>([]);
   const [active, setActive] = useState<CategorySlug>(categories[0]?.slug);
@@ -118,7 +121,7 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
           <p className="mt-3 text-white/85">
             {table ? (
               <>
-                Ordering for <span className="font-semibold text-white">Table {table}</span>
+                You&apos;re at <span className="font-semibold text-white">Table {table.label}</span>
               </>
             ) : (
               "100% vegetarian · protein from real food"
@@ -247,7 +250,7 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
       </main>
 
       <ItemSheet item={openItem} addOns={addOns} orderingEnabled={orderingEnabled} onClose={() => setOpenItem(null)} />
-      {orderingEnabled && <CartBar />}
+      {orderingEnabled && <CartBar tables={tables} fixedTable={table} />}
     </div>
   );
 }

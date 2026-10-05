@@ -51,7 +51,6 @@ function ItemSheetBody({
   const [chosen, setChosen] = useState<string[]>([]);
   const options = addOns.filter((a) => item.addOnIds.includes(a.id));
   const picked = options.filter((a) => chosen.includes(a.id));
-  const unitPrice = item.price + picked.reduce((s, a) => s + a.price, 0);
   const protein = item.protein + picked.reduce((s, a) => s + a.protein, 0);
   const kcal = item.kcal + picked.reduce((s, a) => s + a.kcal, 0);
   const canOrder = orderingEnabled && item.available;
@@ -79,7 +78,7 @@ function ItemSheetBody({
           {[
             ["Protein", `${protein} g`],
             ["Energy", `${kcal} kcal`],
-            ["Price", formatINR(unitPrice)],
+            ["Price", formatINR(item.price)],
           ].map(([k, v]) => (
             <div key={k} className="rounded-2xl bg-secondary/60 px-2 py-3">
               <dt className="font-sans text-[11px] text-muted-foreground uppercase">{k}</dt>
@@ -136,16 +135,15 @@ function ItemSheetBody({
               add({
                 itemId: item.id,
                 name: item.name,
-                unitPrice,
                 addOnIds: picked.map((a) => a.id),
                 addOnNames: picked.map((a) => a.name),
                 quantity: qty,
               });
-              toast.success(`${qty} × ${item.name} added`);
+              toast.success(`${qty} × ${item.name} added to your list`);
               onDone();
             }}
           >
-            Add to cart · <span className="tabular">{formatINR(unitPrice * qty)}</span>
+            Add to my list
           </Button>
         </div>
       )}
