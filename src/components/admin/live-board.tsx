@@ -183,7 +183,7 @@ export function LiveBoard({ initial, menu }: { initial: LiveBoardData; menu: Pub
         )}
       </section>
 
-      <OrdersPanel orders={data.orders} menu={menu} onChanged={refresh} />
+      <OrdersPanel orders={data.orders} bills={data.bills} menu={menu} onChanged={refresh} />
 
       <ConfirmOrderDialog
         selection={confirming}

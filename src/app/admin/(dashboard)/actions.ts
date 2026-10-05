@@ -6,6 +6,7 @@ import { getCafeDetails } from "@/lib/data/menu";
 import { loadMenuPrices } from "@/lib/data/menu-prices";
 import { db } from "@/lib/db";
 import { ACTION_LABEL, canCancel, canEditItems, nextStatus, type OrderAction } from "@/lib/order-flow";
+import { billFromOrders } from "@/lib/billing";
 import { billTotals, priceLines } from "@/lib/pricing";
 import { publish } from "@/lib/realtime";
 import { type ConfirmSelectionInput, ConfirmSelectionSchema } from "@/lib/validators/confirm-order";
@@ -263,5 +264,160 @@ export async function cancelOrder(orderId: string, reason: string): Promise<{ ok
     },
   });
   await publish({ type: "order", orderId: order.id, number: order.number, status: "CANCELLED" });
+  return { ok: true };
+}
+
+/* ------------------------------- billing ------------------------------- */
+
+const BillTarget = z.union([
+  z.object({ tableId: z.string().min(1).max(40) }),
+  z.object({ orderId: z.string().min(1).max(40) }),
+]);
+
+/**
+ * One bill per table visit: all served, unbilled rounds for the table.
+ * Takeaway: one bill per order (once it's ready to collect or picked up).
+ */
+export async function generateBill(
+  target: z.input<typeof BillTarget>,
+): Promise<{ ok: true; billId: string; number: number } | Fail> {
+  const me = await staff();
+  if ("ok" in me) return me;
+  const parsed = BillTarget.safeParse(target);
+  if (!parsed.success) return { ok: false, error: "Nothing to bill." };
+
+  const orders =
+    "tableId" in parsed.data
+      ? await db.order.findMany({
+          where: {
+            tableId: parsed.data.tableId,
+            type: "DINE_IN",
+            billId: null,
+            status: { notIn: ["CANCELLED", "PAID"] },
+          },
+          orderBy: { createdAt: "asc" },
+        })
+      : await db.order.findMany({ where: { id: parsed.data.orderId, type: "PARCEL", billId: null } });
+
+  if (orders.length === 0) return { ok: false, error: "There's nothing left to bill here." };
+  const unfinished = orders.filter((o) =>
+    o.type === "PARCEL" ? !["READY", "SERVED"].includes(o.status) : o.status !== "SERVED",
+  );
+  if (unfinished.length > 0) {
+    return {
+      ok: false,
+      error: `Order${unfinished.length > 1 ? "s" : ""} ${unfinished.map((o) => `#${o.number}`).join(", ")} ${unfinished.length > 1 ? "aren't" : "isn't"} served yet. Mark ${unfinished.length > 1 ? "them" : "it"} served (or cancel) first.`,
+    };
+  }
+
+  const totals = billFromOrders(orders, (await getCafeDetails()).taxBasisPoints);
+  const last = orders[orders.length - 1];
+  const bill = await db
+    .$transaction(async (tx) => {
+      const created = await tx.bill.create({
+        data: {
+          type: last.type,
+          tableId: last.tableId,
+          customerName: last.customerName,
+          customerPhone: last.customerPhone,
+          subtotalPaise: totals.subtotalPaise,
+          taxBasisPoints: totals.taxBasisPoints,
+          taxPaise: totals.taxPaise,
+          totalPaise: totals.totalPaise,
+          createdById: me.id,
+        },
+        select: { id: true, number: true },
+      });
+      // only link orders that are still unbilled (another cashier may have billed them a moment ago)
+      const linked = await tx.order.updateMany({
+        where: { id: { in: orders.map((o) => o.id) }, billId: null },
+        data: { billId: created.id },
+      });
+      if (linked.count !== orders.length) throw new Error("ALREADY_BILLED");
+      return created;
+    })
+    .catch((e: Error) => (e.message === "ALREADY_BILLED" ? null : Promise.reject(e)));
+
+  if (!bill) return { ok: false, error: "Someone else just made this bill – refresh the screen." };
+  for (const o of orders) await publish({ type: "order", orderId: o.id, number: o.number, status: o.status });
+  return { ok: true, billId: bill.id, number: bill.number };
+}
+
+const PaymentSchema = z.object({
+  billId: z.string().min(1).max(40),
+  method: z.enum(["CASH", "UPI", "CARD"]),
+});
+
+/** Payment taken at the counter: orders become PAID, the table frees up, customer stats update. */
+export async function markBillPaid(
+  billId: string,
+  method: "CASH" | "UPI" | "CARD",
+): Promise<{ ok: true } | Fail> {
+  const me = await staff();
+  if ("ok" in me) return me;
+  const parsed = PaymentSchema.safeParse({ billId, method });
+  if (!parsed.success) return { ok: false, error: "Choose cash, UPI or card." };
+
+  const bill = await db.bill.findUnique({ where: { id: parsed.data.billId }, include: { orders: true } });
+  if (!bill) return { ok: false, error: "Bill not found." };
+  if (bill.paidAt) return { ok: false, error: `Bill #${bill.number} is already paid.` };
+
+  const now = new Date();
+  const label = { CASH: "cash", UPI: "UPI", CARD: "card" }[parsed.data.method];
+  const done = await db.$transaction(async (tx) => {
+    const paid = await tx.bill.updateMany({
+      where: { id: bill.id, paidAt: null },
+      data: { paidAt: now, paymentMethod: parsed.data.method },
+    });
+    if (paid.count === 0) return false;
+    await tx.order.updateMany({ where: { billId: bill.id }, data: { status: "PAID" } });
+    await tx.orderStatusLog.createMany({
+      data: bill.orders.map((o) => ({
+        orderId: o.id,
+        fromStatus: o.status,
+        toStatus: "PAID" as const,
+        changedById: me.id,
+        note: `Bill #${bill.number} paid by ${label}`,
+      })),
+    });
+    // one visit per customer on the bill; the spend goes to the guest the bill is for
+    const customerIds = [...new Set(bill.orders.map((o) => o.customerId).filter((id): id is string => !!id))];
+    const billCustomer = bill.orders.find((o) => o.customerPhone === bill.customerPhone)?.customerId;
+    for (const id of customerIds) {
+      await tx.customer.update({
+        where: { id },
+        data: {
+          orderCount: { increment: 1 },
+          lastVisitAt: now,
+          ...(id === billCustomer && { totalSpendPaise: { increment: bill.totalPaise } }),
+        },
+      });
+    }
+    return true;
+  });
+  if (!done) return { ok: false, error: `Bill #${bill.number} was just paid by someone else.` };
+  for (const o of bill.orders)
+    await publish({ type: "order", orderId: o.id, number: o.number, status: "PAID" });
+  return { ok: true };
+}
+
+/** Undo a bill made by mistake (only before it's paid); its orders go back to "to bill". */
+export async function voidBill(billId: string): Promise<{ ok: true } | Fail> {
+  const me = await staff();
+  if ("ok" in me) return me;
+  const id = z.string().min(1).max(40).safeParse(billId);
+  if (!id.success) return { ok: false, error: "Bill not found." };
+  const bill = await db.bill.findUnique({
+    where: { id: id.data },
+    include: { orders: { select: { id: true, number: true, status: true } } },
+  });
+  if (!bill) return { ok: false, error: "Bill not found." };
+  if (bill.paidAt) return { ok: false, error: `Bill #${bill.number} is paid and can't be undone.` };
+  await db.$transaction([
+    db.order.updateMany({ where: { billId: bill.id }, data: { billId: null } }),
+    db.bill.delete({ where: { id: bill.id } }),
+  ]);
+  for (const o of bill.orders)
+    await publish({ type: "order", orderId: o.id, number: o.number, status: o.status });
   return { ok: true };
 }

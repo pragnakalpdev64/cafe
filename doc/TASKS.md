@@ -4,7 +4,7 @@ One task = one session. Prompt: **"Do task P1-03 from doc/TASKS.md."**
 Tick `[x]` when done. Each task ends with `pnpm typecheck && pnpm lint` passing.
 Status board (for the team): https://claude.ai/artifact/GC4ttoJYv6kkz93LDh6oAa – after ticking tasks, regenerate with `node scripts/status-board.mjs <scratch>/build-board.html` and republish to that URL.
 
-**Next up (in order):** P2B-01 → P2B-02 → P2B-03 → P2B-04 → P2B-05 → P2B-06. This is the order flow the owner described (confirm → kitchen → bill). Deployment (Phase 5) waits until the owner asks; run P0-02 in parallel once a 3D scan is chosen.
+**Next up (in order):** P2B-08 → P2B-07 → P4-01 → P4-02 → P4-03 → P4-04, then launch (Phase 5) when the owner asks. Run P0-02 in parallel once a 3D scan is chosen.
 Phases and design reasoning live in [`PLAN.md`](./PLAN.md); scope in [`goal`](./goal).
 
 Legend: **Files** = where the work goes · **Done when** = the check that closes it · ⛔ = blocked by an open question (PLAN.md §5).
@@ -67,9 +67,13 @@ Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm
 - [x] **P2B-04 Staff: kitchen + served** – on the Live orders screen: Send to kitchen, Served / Ready to collect, Cancel with reason; columns or filters by status; status log; live via the existing stream.
   Done when: staff take an order from Confirmed to Served without reloading.
   ✅ 5 Oct: `orders-panel.tsx` – groups Confirmed / In the kitchen / Ready to collect / Done today; Send to kitchen, Served, Ready to collect, Picked up, Cancel with reason (quick reasons); rules in `src/lib/order-flow.ts` (tested). Owner request: staff can **edit items** (qty / remove / add from a searchable menu with add-ons) in the Confirm dialog and on a confirmed order until it goes to the kitchen – re-priced and logged. Verified #5: added Green Tea, edited to 2 (₹407), kitchen → served, guest updated live; #2 cancelled with reason. Takeaway steps covered by unit tests only so far.
-- [ ] **P2B-05 Cashier: bill + payment** – per table "Generate bill" combines served, unbilled rounds; bill view (print-friendly); Paid with Cash / UPI / Card; table frees up; customer visits + spend updated. Takeaway: bill per order.
+- [x] **P2B-05 Cashier: bill + payment** – per table "Generate bill" combines served, unbilled rounds; bill view (print-friendly); Paid with Cash / UPI / Card; table frees up; customer visits + spend updated. Takeaway: bill per order.
   Done when: a two-round table visit produces one bill and is marked paid.
-- [ ] **P2B-06 Order history** – find bills/orders by date, number, phone, table; reprint a bill.
+  ✅ 6 Oct: `billing-panel.tsx` (To bill grouped by table, waits while a round is unserved; Awaiting payment with Cash/UPI/Card, Print, Undo), `/admin/print/bill/[id]` 80 mm receipt, `src/lib/billing.ts` (tested). Verified T6: #5 + #6 → Bill #1 ₹526, paid by UPI, orders PAID, customer 1 visit / ₹526 spend; Undo on T5 works.
+- [x] **P2B-06 Order history** – find bills/orders by date, number, phone, table; reprint a bill.
+  ✅ 6 Oct: `/admin/orders` – date range, one search box (#order / #bill / phone / table / name), type + status, 50 per page, step history, reprint link; staff see masked phones.
+- [ ] **P2B-07 Void bills instead of deleting them** – Undo bill currently deletes the bill, leaving a gap in bill numbers; keep it as VOID with a reason so numbering stays continuous (needed before GST invoices).
+- [ ] **P2B-08 Takeaway run-through in the browser** – Ready to collect → bill → Picked up is unit-tested only so far.
 
 ## Phase 2 – Customer site (ordering parts deferred – see Phase 2A)
 - [x] **P2-01 Landing from DB** – Today's Pick + bestsellers read via `getPublicMenu`; café details from `CafeSettings`.

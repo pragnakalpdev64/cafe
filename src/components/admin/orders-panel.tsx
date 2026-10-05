@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import type { OrderStatus } from "@/generated/prisma/enums";
-import type { LiveOrder } from "@/lib/data/live";
+import type { LiveBill, LiveOrder } from "@/lib/data/live";
 import type { PublicMenu } from "@/lib/data/menu";
 import { formatINR } from "@/lib/format";
 import { toRupees } from "@/lib/money";
 import { ACTION_LABEL, availableActions, canCancel, canEditItems } from "@/lib/order-flow";
 import { cn } from "@/lib/utils";
+import { BillingPanel } from "./billing-panel";
 import { type EditableLine, ItemLinesEditor, toEditableLines } from "./item-lines-editor";
 import { OrderStatusBadge } from "./order-status-badge";
 
@@ -33,16 +34,18 @@ const GROUPS: { title: string; statuses: OrderStatus[]; hint: string }[] = [
 
 export function OrdersPanel({
   orders,
+  bills,
   menu,
   onChanged,
 }: {
   orders: LiveOrder[];
+  bills: LiveBill[];
   menu: PublicMenu;
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState<LiveOrder | null>(null);
   const [cancelling, setCancelling] = useState<LiveOrder | null>(null);
-  const served = orders.filter((o) => o.status === "SERVED" || o.status === "PAID");
+  const served = orders.filter((o) => o.status === "PAID");
   const cancelled = orders.filter((o) => o.status === "CANCELLED");
 
   return (
@@ -76,13 +79,15 @@ export function OrdersPanel({
         );
       })}
 
+      <BillingPanel orders={orders} bills={bills} onChanged={onChanged} />
+
       {served.length + cancelled.length > 0 && (
         <section className="space-y-3" aria-label="Done today">
           <details className="group">
             <summary className="cursor-pointer text-lg font-bold">
               Done today{" "}
               <span className="text-sm font-normal text-muted-foreground">
-                {served.length} served{cancelled.length > 0 && ` · ${cancelled.length} cancelled`}
+                {served.length} paid{cancelled.length > 0 && ` · ${cancelled.length} cancelled`}
               </span>
             </summary>
             <ul className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-3">

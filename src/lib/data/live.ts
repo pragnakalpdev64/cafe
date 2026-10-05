@@ -31,7 +31,9 @@ export type LiveOrder = {
   type: OrderType;
   status: OrderStatus;
   cancelReason: string | null;
+  tableId: string | null;
   table: string | null;
+  billId: string | null;
   customerName: string;
   customerPhone: string | null;
   note: string | null;
@@ -40,13 +42,28 @@ export type LiveOrder = {
   items: LiveOrderItem[];
 };
 
-export type LiveBoard = { selections: LiveSelection[]; orders: LiveOrder[]; serverTime: string };
+export type LiveBill = {
+  id: string;
+  number: number;
+  table: string | null;
+  customerName: string;
+  totalPaise: number;
+  orderNumbers: number[];
+  createdAt: string;
+};
+
+export type LiveBoard = {
+  selections: LiveSelection[];
+  orders: LiveOrder[];
+  bills: LiveBill[];
+  serverTime: string;
+};
 
 /** Everything the live dashboard shows: guests picking right now, and today's confirmed orders. */
 export async function getLiveBoard(role: Role): Promise<LiveBoard> {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
-  const [selections, orders] = await Promise.all([
+  const [selections, orders, bills] = await Promise.all([
     db.selection.findMany({
       where: { status: { not: "CONFIRMED" }, updatedAt: { gt: new Date(Date.now() - 12 * 60 * 60 * 1000) } },
       orderBy: [{ readyAt: "asc" }, { createdAt: "asc" }],
@@ -56,6 +73,14 @@ export async function getLiveBoard(role: Role): Promise<LiveBoard> {
       where: { createdAt: { gte: startOfDay } },
       orderBy: { createdAt: "desc" },
       include: { items: true, table: { select: { label: true } } },
+    }),
+    db.bill.findMany({
+      where: { paidAt: null },
+      orderBy: { createdAt: "asc" },
+      include: {
+        table: { select: { label: true } },
+        orders: { select: { number: true }, orderBy: { number: "asc" } },
+      },
     }),
   ]);
   return {
@@ -75,7 +100,9 @@ export async function getLiveBoard(role: Role): Promise<LiveBoard> {
       type: o.type,
       status: o.status,
       cancelReason: o.cancelReason,
+      tableId: o.tableId,
       table: o.table?.label ?? null,
+      billId: o.billId,
       customerName: o.customerName,
       customerPhone: o.customerPhone && (role === "OWNER" ? o.customerPhone : maskPhone(o.customerPhone)),
       note: o.note,
@@ -89,6 +116,15 @@ export async function getLiveBoard(role: Role): Promise<LiveBoard> {
         addOns: (i.addOns as { id: string; name: string }[]).map((a) => ({ id: a.id, name: a.name })),
         lineTotalPaise: i.lineTotalPaise,
       })),
+    })),
+    bills: bills.map((b) => ({
+      id: b.id,
+      number: b.number,
+      table: b.table?.label ?? null,
+      customerName: b.customerName,
+      totalPaise: b.totalPaise,
+      orderNumbers: b.orders.map((o) => o.number),
+      createdAt: b.createdAt.toISOString(),
     })),
     serverTime: new Date().toISOString(),
   };
