@@ -56,17 +56,15 @@ Built 5 Oct (P2A-01…04): table QR route, guest list without totals, list synce
 The owner clarified that the real flow needs order confirmation and billing, so Phase 2B turns the list into orders.
 
 ## Phase 2B – Orders & bills (current, decided 5 Oct 2026)
-Flow: customer **Confirm order** → staff **Accept** (can edit lines) → **Send to kitchen** → **Served** / **Ready to collect** → cashier **Generate bill** (one per table visit) → **Paid**. Customers never see totals; no tax for now; name + phone required.
-- [x] **P2B-01 Order + bill data model** – reuse `Order`/`OrderItem`/`OrderStatusLog`; add `Bill` (number, table, orders, subtotal, tax, total, payment method, paid at) and `Order.billId`; drop `Selection` once 2B-02 ships.
-  Done when: migration applied; pricing helper (paise, add-ons, tax %) has Vitest tests.
-  ✅ 5 Oct: `Bill` model + `Order.billId` (payment moved to Bill), `Selection` dropped; `src/lib/pricing.ts` with 7 tests.
-- [x] **P2B-02 Customer: Confirm order** – "Confirm order" in Your list → name + phone (+ marketing consent, note) → server prices from DB, checks ordering switch, one-open-order guards, per-phone hourly limit, upserts customer, logs status. Returning customers autofill by phone (rate-limited).
-  Done when: an order from `/t/t3` is saved with server-computed prices and the list empties.
-  ✅ 5 Oct: `src/app/order-actions.ts` + list sheet steps (list → details → sent). Verified: ₹398 priced on the server, second waiting order for a table blocked, sold-out item rejected by name, returning name autofilled, takeaway order. `/admin` now lists today's orders (read-only until P2B-04).
-- [ ] **P2B-03 Customer order status** – `/order/[id]` shows order number, items (no prices) and live status; "Add more items" starts a new round for the same table.
-  Done when: status changes made by staff appear on the guest's phone within 5 s.
-- [ ] **P2B-04 Staff: live orders** – replaces Table lists: New / Accepted / In kitchen / Served columns + takeaway lane; sound + highlight for New; Accept (edit/remove lines first), Send to kitchen, Served / Ready, Cancel with reason; status log; 5 s polling.
-  Done when: staff take an order from New to Served without reloading.
+Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm done** → cashier goes to the table and **confirms the order on the dashboard with the guest's name + phone** → **Send to kitchen** → **Served** / **Ready to collect** → cashier **Generate bill** (one per table visit) → **Paid**. Customers never see totals; no tax for now.
+- [x] **P2B-01 Order + bill data model** – reuse `Order`/`OrderItem`/`OrderStatusLog`; add `Bill` (number, table, orders, subtotal, tax, total, payment method, paid at) and `Order.billId`.
+  ✅ 5 Oct: `Bill` + `Order.billId` (payment on the bill); `src/lib/pricing.ts` with tests.
+- [x] **P2B-02 Live selections + cashier confirms** – guest list mirrors live to the dashboard (`Selection` per device: SELECTING → READY → CONFIRMED); guest "Confirm – I'm done" marks READY; cashier's "Confirm order" dialog (edit items, phone → returning name, note, consent) creates the Order as ACCEPTED with server prices and a status log; guest's phone shows "Order #N confirmed".
+  ✅ 5 Oct: realtime = Server-Sent Events on Postgres LISTEN/NOTIFY (`src/lib/realtime.ts`, `/api/admin/live/stream`, `/api/guest/stream`). Verified two tabs: pick → dashboard in ~0.7 s; Ready + chime; cashier confirmed #4 (₹397, tea qty edited); guest phone updated by itself.
+- [ ] **P2B-03 Customer order status** – guest sees their confirmed order's items (no prices) and live status (Confirmed → In kitchen → Served) via `/api/guest/stream`; new picks after an order start a new round for the same table.
+  Done when: status changes made by staff appear on the guest's phone within a second.
+- [ ] **P2B-04 Staff: kitchen + served** – on the Live orders screen: Send to kitchen, Served / Ready to collect, Cancel with reason; columns or filters by status; status log; live via the existing stream.
+  Done when: staff take an order from Confirmed to Served without reloading.
 - [ ] **P2B-05 Cashier: bill + payment** – per table "Generate bill" combines served, unbilled rounds; bill view (print-friendly); Paid with Cash / UPI / Card; table frees up; customer visits + spend updated. Takeaway: bill per order.
   Done when: a two-round table visit produces one bill and is marked paid.
 - [ ] **P2B-06 Order history** – find bills/orders by date, number, phone, table; reprint a bill.

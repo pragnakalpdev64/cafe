@@ -10,7 +10,7 @@ export type NavItem = {
 };
 
 export const NAV: NavItem[] = [
-  { href: "/admin", label: "Orders", icon: "orders", roles: ["STAFF", "OWNER"] },
+  { href: "/admin", label: "Live orders", icon: "orders", roles: ["STAFF", "OWNER"] },
   { href: "/admin/menu", label: "Menu", icon: "menu", roles: ["STAFF", "OWNER"] },
   {
     href: "/admin/orders",

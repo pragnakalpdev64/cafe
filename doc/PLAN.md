@@ -129,7 +129,7 @@ Phase 0 is added in front of the doc's five phases so the look and the 3D are ag
 - **Done when:** owner can edit the full menu in the dashboard.
 
 ### Phase 2A → 2B – from shared lists to orders & bills (5 Oct 2026)
-2A shipped a list-only version (guests pick, staff see it). The owner then clarified that "keep it simple" meant only minor extras: the core flow must be **customer confirms → staff accept → kitchen → served → cashier bill → paid**. Decisions: name + phone required, no tax for now (Settings switch later), one bill per table visit, customers never see totals. Deferred minor extras: thermal KOT printing, discounts, reports, WhatsApp updates, online payment.
+2A shipped a list-only version (guests pick, staff see it). The owner then clarified the core flow: **staff see picks live → guest taps Confirm (done selecting) → cashier confirms at the table with the guest's name + phone → kitchen → served → cashier bill → paid**. "Keep it simple" only ever meant minor extras. Live updates: Server-Sent Events backed by Postgres LISTEN/NOTIFY (no separate socket server; works across processes). Decisions: the cashier (not the guest) enters name + phone, no tax for now (Settings switch later), one bill per table visit, customers never see totals. Deferred minor extras: thermal KOT printing, discounts, reports, WhatsApp updates, online payment.
 
 ### Phase 2 – Customer site
 - Landing page: 3D hero + scroll story, Today's Pick, promise points, bestsellers (from DB), Visit us, footer, SEO metadata + OG image.

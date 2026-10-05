@@ -1,0 +1,80 @@
+import "server-only";
+import type { OrderStatus, Role, SelectionStatus } from "@/generated/prisma/enums";
+import { db } from "@/lib/db";
+import { maskPhone } from "@/lib/phone-mask";
+import type { SelectionLine } from "@/lib/validators/selection";
+
+export type LiveSelection = {
+  id: string;
+  table: string | null;
+  takeaway: boolean;
+  code: number;
+  status: Exclude<SelectionStatus, "CONFIRMED">;
+  readyAt: string | null;
+  updatedAt: string;
+  items: SelectionLine[];
+};
+
+export type LiveOrder = {
+  id: string;
+  number: number;
+  status: OrderStatus;
+  table: string | null;
+  customerName: string;
+  customerPhone: string | null;
+  note: string | null;
+  totalPaise: number;
+  createdAt: string;
+  items: { id: string; name: string; quantity: number; addOns: string[]; lineTotalPaise: number }[];
+};
+
+export type LiveBoard = { selections: LiveSelection[]; orders: LiveOrder[]; serverTime: string };
+
+/** Everything the live dashboard shows: guests picking right now, and today's confirmed orders. */
+export async function getLiveBoard(role: Role): Promise<LiveBoard> {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const [selections, orders] = await Promise.all([
+    db.selection.findMany({
+      where: { status: { not: "CONFIRMED" }, updatedAt: { gt: new Date(Date.now() - 12 * 60 * 60 * 1000) } },
+      orderBy: [{ readyAt: "asc" }, { createdAt: "asc" }],
+      include: { table: { select: { label: true } } },
+    }),
+    db.order.findMany({
+      where: { createdAt: { gte: startOfDay } },
+      orderBy: { createdAt: "desc" },
+      include: { items: true, table: { select: { label: true } } },
+    }),
+  ]);
+  return {
+    selections: selections.map((s) => ({
+      id: s.id,
+      table: s.table?.label ?? null,
+      takeaway: s.takeaway,
+      code: s.code,
+      status: s.status as LiveSelection["status"],
+      readyAt: s.readyAt?.toISOString() ?? null,
+      updatedAt: s.updatedAt.toISOString(),
+      items: s.items as SelectionLine[],
+    })),
+    orders: orders.map((o) => ({
+      id: o.id,
+      number: o.number,
+      status: o.status,
+      table: o.table?.label ?? null,
+      customerName: o.customerName,
+      customerPhone: o.customerPhone && (role === "OWNER" ? o.customerPhone : maskPhone(o.customerPhone)),
+      note: o.note,
+      totalPaise: o.totalPaise,
+      createdAt: o.createdAt.toISOString(),
+      items: o.items.map((i) => ({
+        id: i.id,
+        name: i.itemName,
+        quantity: i.quantity,
+        addOns: (i.addOns as { name: string }[]).map((a) => a.name),
+        lineTotalPaise: i.lineTotalPaise,
+      })),
+    })),
+    serverTime: new Date().toISOString(),
+  };
+}
