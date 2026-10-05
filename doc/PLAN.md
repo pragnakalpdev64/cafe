@@ -128,8 +128,8 @@ Phase 0 is added in front of the doc's five phases so the look and the 3D are ag
 - Admin shell (sidebar, header, offline indicator) and **Menu manager**: categories, items, prices, protein/kcal, tags, photos (upload + WebP), add-ons, hide, sold-out.
 - **Done when:** owner can edit the full menu in the dashboard.
 
-### Phase 2A – Selection-only v1 (current, 5 Oct 2026)
-Owner decision: no order submission and no totals for now. Guests build a list on the QR menu (table from the QR, or a phone number for takeaway); it syncs to a `Selection` row and staff see it on the dashboard. Order placing, totals, payment and status flows (Phase 2 ordering + most of Phase 3) wait until asked. Keep features minimal.
+### Phase 2A → 2B – from shared lists to orders & bills (5 Oct 2026)
+2A shipped a list-only version (guests pick, staff see it). The owner then clarified that "keep it simple" meant only minor extras: the core flow must be **customer confirms → staff accept → kitchen → served → cashier bill → paid**. Decisions: name + phone required, no tax for now (Settings switch later), one bill per table visit, customers never see totals. Deferred minor extras: thermal KOT printing, discounts, reports, WhatsApp updates, online payment.
 
 ### Phase 2 – Customer site
 - Landing page: 3D hero + scroll story, Today's Pick, promise points, bestsellers (from DB), Visit us, footer, SEO metadata + OG image.
@@ -166,14 +166,13 @@ Online UPI (Razorpay), WhatsApp updates, kitchen screen, SSE instead of polling,
 
 ## 5. Open questions that block specific phases
 
-Resolved: brand colours (new green/orange brand replaces the wall palette, 4 Oct 2026).
+Resolved: brand colours (new green/orange brand, 4 Oct 2026); dine-in needs name + phone, no tax for now, one bill per table visit (5 Oct 2026).
 | Question (from goal doc) | Needed by |
 |---|---|
 | Final menu data + prices, Oats bowl items | Phase 1 seed (owner can now edit in the menu manager) |
 | Unclear item names: "…6ole…" (Chole Bowl?), "Chipotle Avocado Cucumber" (one or two sandwiches?) | Phase 1 seed |
 | Café details: address, phone, WhatsApp, Instagram, hours | Phase 2 |
-| Dine-in: phone required or only parcel? | Phase 2 order form |
-| GST registered? Show tax on bills? | Phase 2 pricing / Phase 3 bills |
+| GST registered? (bills show no tax until confirmed; GSTIN needed if yes) | Settings tax switch |
 | Thermal printer? | Phase 3 bill / KOT layout |
 | Number of tables, number of staff logins | Phase 4 / 5 |
 | Domain + opening date | Phase 5 |

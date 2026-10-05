@@ -4,14 +4,13 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { LogoIcon } from "@/components/brand/logo";
 import { getCafeDetails } from "@/lib/data/menu";
-import { SELECTION_RETENTION_HOURS } from "@/lib/data/selections";
 
 export const metadata: Metadata = {
   title: "Privacy note",
   description: "What Healthy Hunger collects when you use the QR menu, why, and how to have it deleted.",
 };
 
-// Keep in step with what the app actually does (see Selection, CafeSettings, StaffUser).
+// Keep in step with what the app actually does (see Order, Customer, CafeSettings).
 const UPDATED = "5 October 2026";
 
 export default async function PrivacyPage() {
@@ -47,41 +46,46 @@ export default async function PrivacyPage() {
           <h2>What we collect</h2>
           <ul>
             <li>
-              <strong>Your list:</strong> the items you pick on the menu, with add-ons and quantities.
+              <strong>Your name and mobile number</strong>, when you confirm an order.
             </li>
             <li>
-              <strong>Your table number</strong>, if you scanned a table QR or chose a table.
+              <strong>Your order:</strong> the items, your table (or takeaway), any note to the kitchen, and
+              the bill.
             </li>
             <li>
-              <strong>Your mobile number</strong>, only if you choose takeaway and type it in.
+              <strong>Your offers choice</strong> – only if you tick the box, with the date you ticked it.
             </li>
             <li>
-              <strong>A random ID in your browser</strong>, so your list stays on your phone while you browse.
-              It isn&apos;t linked to your name.
+              <strong>On your phone</strong>, the site remembers your list and your details so the next order
+              is quicker. This stays in your browser.
             </li>
           </ul>
           <p className="mt-2">
-            We don&apos;t ask for your name or email, we don&apos;t take payments online, and the site has no
+            We don&apos;t ask for your email, we don&apos;t take payments online, and the site has no
             advertising or tracking cookies.
           </p>
         </section>
 
         <section>
           <h2>Why we use it</h2>
-          <p>
-            Only so our staff can see what you picked and find you – at your table, or by your number for
-            takeaway. We don&apos;t send offers or messages.
-          </p>
+          <ul>
+            <li>To prepare your order, bring it to you and make your bill.</li>
+            <li>To contact you about that order if needed.</li>
+            <li>To fill in your name next time you order with the same number.</li>
+            <li>
+              To send offers on WhatsApp or SMS – <strong>only</strong> if you ticked the box.
+            </li>
+          </ul>
         </section>
 
         <section>
           <h2>Who can see it</h2>
           <ul>
             <li>
-              Café staff see your list and table. They see your mobile number partly hidden (for example
+              Café staff see your order and table. They see your mobile number partly hidden (for example
               98xxxxxx21).
             </li>
-            <li>The owner can see the full number.</li>
+            <li>The owner can see the full number and your past visits.</li>
             <li>We don&apos;t sell or share your details with anyone else.</li>
           </ul>
         </section>
@@ -89,9 +93,9 @@ export default async function PrivacyPage() {
         <section>
           <h2>How long we keep it</h2>
           <ul>
-            <li>Your list is deleted when staff clear it after serving you.</li>
-            <li>Anything left is deleted automatically after {SELECTION_RETENTION_HOURS} hours.</li>
-            <li>On your phone, the list clears itself after 12 hours, or when you tap “Clear list”.</li>
+            <li>Orders and bills are kept as the café&apos;s sales records.</li>
+            <li>Your customer details (name, number, visits) are kept until you ask us to delete them.</li>
+            <li>On your phone, your list clears itself after 12 hours, or when you tap “Clear list”.</li>
           </ul>
         </section>
 
@@ -99,7 +103,7 @@ export default async function PrivacyPage() {
           <h2>Your rights</h2>
           <p>
             Under India&apos;s Digital Personal Data Protection Act, 2023 you can ask what we hold about you,
-            ask us to correct it, or ask us to delete it.{" "}
+            ask us to correct it, or ask us to delete it, and you can stop offers at any time.{" "}
             {contact ? <>To do that, {contact}, or </> : <>To do that, </>}
             speak to us at the counter.
           </p>

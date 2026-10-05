@@ -4,7 +4,7 @@ One task = one session. Prompt: **"Do task P1-03 from doc/TASKS.md."**
 Tick `[x]` when done. Each task ends with `pnpm typecheck && pnpm lint` passing.
 Status board (for the team): https://claude.ai/artifact/GC4ttoJYv6kkz93LDh6oAa – after ticking tasks, regenerate with `node scripts/status-board.mjs <scratch>/build-board.html` and republish to that URL.
 
-**Next up (in order):** P2-12 → P1-09 → P4-05 → P4-06 → P5-01 → P5-02 → P5-03 → P5-04 → P5-06. This is the shortest path to launching the selection-only v1 (QR cards, owner settings + staff logins, deploy). Order placing (P2-07–P2-10, most of Phase 3) waits until the owner asks; run P0-02 in parallel once a 3D scan is chosen.
+**Next up (in order):** P2B-01 → P2B-02 → P2B-03 → P2B-04 → P2B-05 → P2B-06. This is the order flow the owner described (confirm → kitchen → bill). Deployment (Phase 5) waits until the owner asks; run P0-02 in parallel once a 3D scan is chosen.
 Phases and design reasoning live in [`PLAN.md`](./PLAN.md); scope in [`goal`](./goal).
 
 Legend: **Files** = where the work goes · **Done when** = the check that closes it · ⛔ = blocked by an open question (PLAN.md §5).
@@ -51,20 +51,25 @@ Legend: **Files** = where the work goes · **Done when** = the check that closes
   Done when: nothing in `src/` imports it; `pnpm db:seed` + build pass.
   ✅ 5 Oct: now `prisma/seed-data.ts` (menu + café defaults); `src/lib/cafe.ts` keeps only `NUTRITION_NOTE`.
 
-## Phase 2A – Selection-only v1 (current scope, decided 5 Oct 2026)
-Customers don't place orders and no totals are shown. They pick items; staff see each table's (or phone number's) list in the dashboard.
-- [x] **P2A-01 Table route** – `src/app/t/[table]/page.tsx` reuses the menu with the table pre-set; unknown/inactive table → `/menu`.
-  Done when: `/t/t1` shows "Table T1" on the menu.
-  ✅ Built 5 Oct: `/t/t3` shows "You're at Table T3"; unknown slug redirects to `/menu`.
-- [x] **P2A-02 Customer list (no totals)** – cart becomes "Your list": items, add-ons, quantity only; no ₹ totals anywhere in it. On `/menu` the guest picks a table or enters a phone number (takeaway).
-  Done when: no total amount shows in the cart bar, list or item sheet.
-  ✅ Built 5 Oct: `cart-bar.tsx` ("Your list", table/takeaway picker), lists older than 12 h are dropped on the device.
-- [x] **P2A-03 Share list with staff** – list auto-syncs to the server (`Selection` table, one row per device), validated against the DB, rate-limited; empty list removes it.
-  Done when: editing the list on a phone updates the DB within ~1 s.
-  ✅ Built + verified 5 Oct: `src/app/selection-actions.ts`, `Selection` model; guest bar shows "Staff can see it · Table T3".
-- [x] **P2A-04 Staff "Table lists" screen** – `/admin` shows lists grouped by table + a takeaway lane (phone masked for staff), refreshes every 5 s, "Clear" per table/guest.
-  Done when: staff see a table's picks within 5 s and can clear them.
-  ✅ Built + verified 5 Oct: `live-lists.tsx`, `/api/admin/selections`; new list showed within 5 s, Clear removes the row.
+## Phase 2A – Shared lists (done, being replaced by 2B)
+Built 5 Oct (P2A-01…04): table QR route, guest list without totals, list synced to staff, "Table lists" screen.
+The owner clarified that the real flow needs order confirmation and billing, so Phase 2B turns the list into orders.
+
+## Phase 2B – Orders & bills (current, decided 5 Oct 2026)
+Flow: customer **Confirm order** → staff **Accept** (can edit lines) → **Send to kitchen** → **Served** / **Ready to collect** → cashier **Generate bill** (one per table visit) → **Paid**. Customers never see totals; no tax for now; name + phone required.
+- [x] **P2B-01 Order + bill data model** – reuse `Order`/`OrderItem`/`OrderStatusLog`; add `Bill` (number, table, orders, subtotal, tax, total, payment method, paid at) and `Order.billId`; drop `Selection` once 2B-02 ships.
+  Done when: migration applied; pricing helper (paise, add-ons, tax %) has Vitest tests.
+  ✅ 5 Oct: `Bill` model + `Order.billId` (payment moved to Bill), `Selection` dropped; `src/lib/pricing.ts` with 7 tests.
+- [x] **P2B-02 Customer: Confirm order** – "Confirm order" in Your list → name + phone (+ marketing consent, note) → server prices from DB, checks ordering switch, one-open-order guards, per-phone hourly limit, upserts customer, logs status. Returning customers autofill by phone (rate-limited).
+  Done when: an order from `/t/t3` is saved with server-computed prices and the list empties.
+  ✅ 5 Oct: `src/app/order-actions.ts` + list sheet steps (list → details → sent). Verified: ₹398 priced on the server, second waiting order for a table blocked, sold-out item rejected by name, returning name autofilled, takeaway order. `/admin` now lists today's orders (read-only until P2B-04).
+- [ ] **P2B-03 Customer order status** – `/order/[id]` shows order number, items (no prices) and live status; "Add more items" starts a new round for the same table.
+  Done when: status changes made by staff appear on the guest's phone within 5 s.
+- [ ] **P2B-04 Staff: live orders** – replaces Table lists: New / Accepted / In kitchen / Served columns + takeaway lane; sound + highlight for New; Accept (edit/remove lines first), Send to kitchen, Served / Ready, Cancel with reason; status log; 5 s polling.
+  Done when: staff take an order from New to Served without reloading.
+- [ ] **P2B-05 Cashier: bill + payment** – per table "Generate bill" combines served, unbilled rounds; bill view (print-friendly); Paid with Cash / UPI / Card; table frees up; customer visits + spend updated. Takeaway: bill per order.
+  Done when: a two-round table visit produces one bill and is marked paid.
+- [ ] **P2B-06 Order history** – find bills/orders by date, number, phone, table; reprint a bill.
 
 ## Phase 2 – Customer site (ordering parts deferred – see Phase 2A)
 - [x] **P2-01 Landing from DB** – Today's Pick + bestsellers read via `getPublicMenu`; café details from `CafeSettings`.
@@ -78,11 +83,11 @@ Customers don't place orders and no totals are shown. They pick items; staff see
 - [ ] **P2-05 Table route** (superseded by P2A-01) – `src/app/t/[table]/page.tsx` reuses menu, table pre-filled; unknown/inactive table → `/menu`.
 - [x] **P2-06 View-only mode** – ordering-off setting hides cart/ordering with a notice.
   ✅ Menu side built (`orderingEnabled` from CafeSettings); the on/off switch itself arrives with P4-06.
-- [ ] **P2-07 (later) Order form UI** (default: phone required for both types, per goal doc; switchable later) – dine-in/parcel, pickup slot, note, consent, privacy link (RHF + Zod).
-- [ ] **P2-08 (later) Returning-customer autofill** – lookup by phone (rate-limited, returns name/email only).
-- [ ] **P2-09 (later) Place-order action** (tax from `CafeSettings.taxBasisPoints`, 0 until GST is confirmed) – server pricing from DB, one open order per table, per-phone hourly limit, ordering-off check, customer upsert, status log.
+- [ ] **P2-07 (now part of 2B) Order form UI** (default: phone required for both types, per goal doc; switchable later) – dine-in/parcel, pickup slot, note, consent, privacy link (RHF + Zod).
+- [ ] **P2-08 (now part of 2B) Returning-customer autofill** – lookup by phone (rate-limited, returns name/email only).
+- [ ] **P2-09 (now part of 2B) Place-order action** (tax from `CafeSettings.taxBasisPoints`, 0 until GST is confirmed) – server pricing from DB, one open order per table, per-phone hourly limit, ordering-off check, customer upsert, status log.
   Done when: unit tests (Vitest) cover pricing + guard rails.
-- [ ] **P2-10 (later) Order status page** – `src/app/order/[id]/page.tsx` with polling.
+- [ ] **P2-10 (now part of 2B) Order status page** – `src/app/order/[id]/page.tsx` with polling.
 - [x] **P2-11 Privacy page** – `src/app/privacy/page.tsx`, linked from footer + form.
   ✅ Built 5 Oct: describes the selection-only flow; lists auto-deleted after 24 h (`purgeOldSelections`). Have it legally checked before launch.
 - [x] **P2-12 Perf check** – Lighthouse on `/menu`, throttled 4G < 2 s; no three.js in menu bundle.

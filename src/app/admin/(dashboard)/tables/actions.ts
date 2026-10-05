@@ -67,11 +67,8 @@ export async function setTableActive(id: string, active: boolean) {
 export async function deleteTable(id: string) {
   const denied = await owner();
   if (denied) return denied;
-  // guests' lists for this table are removed with it (they are short-lived anyway)
-  await db.$transaction([
-    db.selection.deleteMany({ where: { tableId: id } }),
-    db.cafeTable.delete({ where: { id } }),
-  ]);
+  // past orders and bills keep their history (their table link is set to empty)
+  await db.cafeTable.delete({ where: { id } });
   tablesChanged();
   return { ok: true as const };
 }

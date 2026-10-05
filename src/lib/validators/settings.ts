@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { INDIAN_MOBILE } from "./selection";
+import { INDIAN_MOBILE } from "./phone";
 
 const optional = <T extends z.ZodType<string, string>>(schema: T) => z.union([z.literal(""), schema]);
 const checkbox = z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean());
