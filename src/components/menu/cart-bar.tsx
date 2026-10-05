@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { type GuestSpot, itemCount, useCart } from "@/lib/cart-store";
+import { type GuestSpot, itemCount, lineKey, useCart } from "@/lib/cart-store";
+import type { AddOn, MenuItem } from "@/lib/menu-types";
 import { cn } from "@/lib/utils";
 import { guestStatusLabel, isActive, OrderTracker } from "./order-tracker";
-import { QuantityStepper } from "./quantity-stepper";
+import { ListLine } from "./list-line";
 
 export type TableOption = { slug: string; label: string };
 
@@ -23,16 +24,35 @@ type Sync = "idle" | "saving" | "saved" | "error";
  * guest is done, and the cashier then confirms the order at the table. No totals here.
  * `fixedTable` comes from a table QR (/t/…); on /menu the guest picks a table or takeaway.
  */
-export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTable?: TableOption }) {
+export function CartBar({
+  tables,
+  fixedTable,
+  items,
+  addOns,
+}: {
+  tables: TableOption[];
+  fixedTable?: TableOption;
+  /** menu items and add-ons, so guests can change add-ons from the list */
+  items: MenuItem[];
+  addOns: AddOn[];
+}) {
   const { clientId, lines, spot, ready, code, orders, showConfirmed } = useCart();
-  const { setQuantity, setSpot, setReady, setCode, orderConfirmed, dismissConfirmed, clear } =
+  const { setQuantity, setAddOns, setSpot, setReady, setCode, orderConfirmed, dismissConfirmed, clear } =
     useCart.getState();
   const [hydrated, setHydrated] = useState(false);
   const [open, setOpen] = useState(false);
   const [sync, setSync] = useState<Sync>("idle");
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [readyPending, startReady] = useTransition();
   const [guestOrders, setGuestOrders] = useState<GuestOrder[]>([]);
   const count = itemCount(lines);
+  const addOnsFor = useCallback(
+    (itemId: string) => {
+      const ids = items.find((i) => i.id === itemId)?.addOnIds ?? [];
+      return addOns.filter((a) => ids.includes(a.id));
+    },
+    [items, addOns],
+  );
   const latest = orders[0];
   const orderIds = orders.map((o) => o.id).join(",");
 
@@ -238,20 +258,18 @@ export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTa
 
               <ul className="divide-y divide-border px-5">
                 {lines.map((l) => (
-                  <li key={l.key} className="flex items-center gap-3 py-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">{l.name}</p>
-                      {l.addOnNames.length > 0 && (
-                        <p className="truncate text-xs text-muted-foreground">+ {l.addOnNames.join(", ")}</p>
-                      )}
-                    </div>
-                    <QuantityStepper
-                      value={l.quantity}
-                      min={0}
-                      onChange={(q) => setQuantity(l.key, q)}
-                      label={`Quantity of ${l.name}`}
-                    />
-                  </li>
+                  <ListLine
+                    key={l.key}
+                    line={l}
+                    options={addOnsFor(l.itemId)}
+                    open={expanded === l.key}
+                    onToggle={() => setExpanded((k) => (k === l.key ? null : l.key))}
+                    onQuantity={(q) => setQuantity(l.key, q)}
+                    onAddOns={(ids, names) => {
+                      setAddOns(l.key, ids, names);
+                      setExpanded(lineKey(l.itemId, ids)); // follow the line to its new key
+                    }}
+                  />
                 ))}
               </ul>
 

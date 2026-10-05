@@ -285,7 +285,7 @@ export function MenuBrowser({
         orderingEnabled={orderingEnabled}
         onClose={() => setOpenItem(null)}
       />
-      {orderingEnabled && <CartBar tables={tables} fixedTable={table} />}
+      {orderingEnabled && <CartBar tables={tables} fixedTable={table} items={items} addOns={addOns} />}
     </div>
   );
 }

@@ -97,6 +97,26 @@ async function main() {
     console.log(`Created owner account "${username}" (password in .env → SEED_OWNER_PASSWORD).`);
   }
 
+  // Local development only: an easy-to-remember owner login (admin / admin).
+  // Never created in production – a guessable password must not reach the live site.
+  if (process.env.SEED_DEV_ADMIN === "true") {
+    if (process.env.NODE_ENV === "production") {
+      console.warn("SEED_DEV_ADMIN is ignored in production.");
+    } else {
+      await db.staffUser.upsert({
+        where: { username: "admin" },
+        update: {},
+        create: {
+          name: "Admin (dev)",
+          username: "admin",
+          role: "OWNER",
+          passwordHash: await hash("admin", { memoryCost: 19456, timeCost: 2, parallelism: 1 }),
+        },
+      });
+      console.log('Dev login ready: username "admin", password "admin" (local development only).');
+    }
+  }
+
   console.log(
     `Seeded ${categories.length} categories, ${menuItems.length} items, ${addOns.length} add-ons, 6 tables.`,
   );

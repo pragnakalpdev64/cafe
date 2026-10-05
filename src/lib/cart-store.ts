@@ -37,6 +37,8 @@ type CartState = {
   touchedAt: number;
   add: (line: Omit<CartLine, "key">) => void;
   setQuantity: (key: string, quantity: number) => void;
+  /** change the add-ons on a line already in the list (merges with an identical line) */
+  setAddOns: (key: string, addOnIds: string[], addOnNames: string[]) => void;
   setSpot: (spot: GuestSpot | null) => void;
   setReady: (ready: boolean) => void;
   setCode: (code: number) => void;
@@ -54,7 +56,7 @@ const newClientId = () =>
     ? crypto.randomUUID()
     : "00000000-0000-4000-8000-000000000000";
 
-const lineKey = (itemId: string, addOnIds: string[]) => [itemId, ...[...addOnIds].sort()].join("|");
+export const lineKey = (itemId: string, addOnIds: string[]) => [itemId, ...[...addOnIds].sort()].join("|");
 
 export const useCart = create<CartState>()(
   persist(
@@ -86,6 +88,22 @@ export const useCart = create<CartState>()(
               : state.lines.map((l) => (l.key === key ? { ...l, quantity } : l)),
           touchedAt: Date.now(),
         })),
+      setAddOns: (key, addOnIds, addOnNames) =>
+        set((state) => {
+          const line = state.lines.find((l) => l.key === key);
+          if (!line) return {};
+          const nextKey = lineKey(line.itemId, addOnIds);
+          if (nextKey === key) return {};
+          const twin = state.lines.find((l) => l.key === nextKey);
+          const lines = twin
+            ? state.lines
+                .filter((l) => l.key !== key)
+                .map((l) =>
+                  l.key === nextKey ? { ...l, quantity: Math.min(20, l.quantity + line.quantity) } : l,
+                )
+            : state.lines.map((l) => (l.key === key ? { ...l, key: nextKey, addOnIds, addOnNames } : l));
+          return { lines, touchedAt: Date.now() };
+        }),
       setSpot: (spot) => set({ spot, touchedAt: Date.now() }),
       setReady: (ready) => set({ ready, touchedAt: Date.now() }),
       setCode: (code) => set({ code }),

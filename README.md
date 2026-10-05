@@ -18,7 +18,9 @@ pnpm dev                  # http://localhost:3000 – dashboard at /admin
 
 `.env`: `DATABASE_URL`, `AUTH_SECRET` (`openssl rand -base64 32`), `SEED_OWNER_USERNAME` / `SEED_OWNER_PASSWORD` (first owner login), `UPLOAD_DIR` (menu photos, default `./uploads`).
 
-Add a staff login (until Settings → Staff arrives in Phase 4):
+Local development: with `SEED_DEV_ADMIN="true"` in `.env`, `pnpm db:seed` also creates an owner login **admin / admin** (never in production).
+
+Add a staff login from the terminal (or in Settings → Staff logins):
 
 ```bash
 pnpm staff:add counter1 "Counter One" --phone 9800000000
