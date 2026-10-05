@@ -4,8 +4,7 @@ import "dotenv/config";
 import { hash } from "@node-rs/argon2";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { cafe } from "../src/lib/cafe";
-import { addOns, categories, menuItems, todaysPickId } from "../src/lib/mock-menu";
+import { addOns, cafe, categories, menuItems, todaysPickId } from "./seed-data";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 const paise = (rupees: number) => Math.round(rupees * 100);

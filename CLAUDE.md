@@ -17,6 +17,7 @@ Next.js 16 (App Router, RSC, `src/proxy.ts` not middleware) · React 19 · TypeS
 ## Rules
 - Read the relevant doc in `node_modules/next/dist/docs/` before using a Next API you're unsure of (v16 differs from older versions).
 - Every admin page/action calls `requireUser(role?)` from `lib/auth/dal.ts`; the proxy is only an optimistic redirect.
+- Admin forms submit with `useFormAction` (`src/hooks/use-form-action.ts`), not `<form action>` – React resets `action` forms even on a validation error, wiping input.
 - Validate every server input with Zod. Money is stored as integer paise; convert with `lib/money.ts`.
 - Prices are copied into `OrderItem`; totals are computed on the server only.
 - After a menu/settings write call `updateTag(MENU_TAG | SETTINGS_TAG)`.

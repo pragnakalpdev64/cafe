@@ -1,7 +1,7 @@
 "use client";
 
 import { Pencil, Trash2, X } from "lucide-react";
-import { useActionState, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { deleteAddOn, saveAddOn } from "@/app/admin/(dashboard)/menu/actions";
 import { ActionSwitch } from "@/components/admin/action-switch";
@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { AdminMenu } from "@/lib/data/admin-menu";
 import { formatINR } from "@/lib/format";
+import { useFormAction } from "@/hooks/use-form-action";
 
 type AddOn = AdminMenu["addOns"][number];
 
 function AddOnForm({ addOn, onDone }: { addOn?: AddOn; onDone: () => void }) {
-  const [state, action, pending] = useActionState(saveAddOn, undefined);
+  const [state, onSubmit, pending] = useFormAction(saveAddOn, undefined);
   useEffect(() => {
     if (state?.ok) {
       toast.success(addOn ? "Add-on saved" : "Add-on added");
@@ -23,19 +24,41 @@ function AddOnForm({ addOn, onDone }: { addOn?: AddOn; onDone: () => void }) {
   }, [state, addOn, onDone]);
   const err = state?.fieldErrors ?? {};
   return (
-    <form action={action} className="grid grid-cols-2 gap-2 sm:grid-cols-[2fr_1fr_1fr_1fr_auto] sm:items-start">
+    <form
+      onSubmit={onSubmit}
+      className="grid grid-cols-2 gap-2 sm:grid-cols-[2fr_1fr_1fr_1fr_auto] sm:items-start"
+    >
       {addOn && <input type="hidden" name="id" value={addOn.id} />}
       <Field label="Name" error={err.name} className="col-span-2 sm:col-span-1">
         <Input name="name" defaultValue={addOn?.name} required aria-invalid={!!err.name} className="h-9" />
       </Field>
       <Field label="Price ₹" error={err.price}>
-        <Input name="price" inputMode="decimal" defaultValue={addOn?.price} required aria-invalid={!!err.price} className="h-9" />
+        <Input
+          name="price"
+          inputMode="decimal"
+          defaultValue={addOn?.price}
+          required
+          aria-invalid={!!err.price}
+          className="h-9"
+        />
       </Field>
       <Field label="Protein g" error={err.protein}>
-        <Input name="protein" inputMode="numeric" defaultValue={addOn?.protein ?? 0} aria-invalid={!!err.protein} className="h-9" />
+        <Input
+          name="protein"
+          inputMode="numeric"
+          defaultValue={addOn?.protein ?? 0}
+          aria-invalid={!!err.protein}
+          className="h-9"
+        />
       </Field>
       <Field label="kcal" error={err.kcal}>
-        <Input name="kcal" inputMode="numeric" defaultValue={addOn?.kcal ?? 0} aria-invalid={!!err.kcal} className="h-9" />
+        <Input
+          name="kcal"
+          inputMode="numeric"
+          defaultValue={addOn?.kcal ?? 0}
+          aria-invalid={!!err.kcal}
+          className="h-9"
+        />
       </Field>
       <div className="col-span-2 flex gap-1 sm:col-span-1 sm:pt-5">
         <Button type="submit" size="sm" disabled={pending}>
@@ -92,12 +115,19 @@ export function AddOnsPanel({
             ) : (
               <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className={a.available ? "font-medium" : "font-medium text-muted-foreground line-through"}>{a.name}</p>
+                  <p
+                    className={a.available ? "font-medium" : "font-medium text-muted-foreground line-through"}
+                  >
+                    {a.name}
+                  </p>
                   <p className="tabular text-xs text-muted-foreground">
-                    +{formatINR(a.price)} · +{a.protein} g · {a.kcal} kcal · on {a.usedBy} item{a.usedBy === 1 ? "" : "s"}
+                    +{formatINR(a.price)} · +{a.protein} g · {a.kcal} kcal · on {a.usedBy} item
+                    {a.usedBy === 1 ? "" : "s"}
                   </p>
                 </div>
-                <span className="hidden text-xs text-muted-foreground sm:inline">{a.available ? "Available" : "Sold out"}</span>
+                <span className="hidden text-xs text-muted-foreground sm:inline">
+                  {a.available ? "Available" : "Sold out"}
+                </span>
                 <ActionSwitch
                   checked={a.available}
                   label={`${a.name} available`}
@@ -105,7 +135,12 @@ export function AddOnsPanel({
                 />
                 {isOwner && (
                   <>
-                    <Button variant="ghost" size="icon-sm" aria-label={`Edit ${a.name}`} onClick={() => setEditing(a.id)}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Edit ${a.name}`}
+                      onClick={() => setEditing(a.id)}
+                    >
                       <Pencil />
                     </Button>
                     <ConfirmButton

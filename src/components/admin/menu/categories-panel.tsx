@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Trash2 } from "lucide-react";
-import { useActionState, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   deleteCategory,
@@ -15,11 +15,12 @@ import { MoveButtons } from "@/components/admin/move-buttons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { AdminMenu } from "@/lib/data/admin-menu";
+import { useFormAction } from "@/hooks/use-form-action";
 
 type Category = AdminMenu["categories"][number];
 
 function CategoryNameForm({ category, onSaved }: { category?: Category; onSaved?: () => void }) {
-  const [state, action, pending] = useActionState(saveCategory, undefined);
+  const [state, onSubmit, pending] = useFormAction(saveCategory, undefined);
   useEffect(() => {
     if (state?.ok) {
       toast.success(category ? "Category renamed" : "Category added");
@@ -28,7 +29,7 @@ function CategoryNameForm({ category, onSaved }: { category?: Category; onSaved?
   }, [state, category, onSaved]);
 
   return (
-    <form action={action} className="flex flex-1 items-center gap-2">
+    <form onSubmit={onSubmit} className="flex flex-1 items-center gap-2">
       {category && <input type="hidden" name="id" value={category.id} />}
       <Input
         name="name"
@@ -65,7 +66,12 @@ export function CategoriesPanel({ categories }: { categories: Category[] }) {
                 action={(next) => setCategoryVisible(c.id, next)}
               />
             </div>
-            <MoveButtons label={c.name} first={i === 0} last={i === categories.length - 1} move={(dir) => moveCategory(c.id, dir)} />
+            <MoveButtons
+              label={c.name}
+              first={i === 0}
+              last={i === categories.length - 1}
+              move={(dir) => moveCategory(c.id, dir)}
+            />
             <ConfirmButton
               variant="ghost"
               size="icon-sm"

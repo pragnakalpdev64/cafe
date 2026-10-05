@@ -1,7 +1,8 @@
-// Menu from the owner's list (27 Sep 2026). Phase 1 moves this into PostgreSQL.
+// Initial data for `pnpm db:seed` – the owner's menu list (27 Sep 2026).
+// After seeding, everything is edited in the dashboard; the app never reads this file.
 // NOT FINAL: prices, protein, kcal, descriptions, ingredients and bestseller tags are
 // placeholders until the owner confirms them in the menu manager.
-import type { AddOn, Category, CategorySlug, MenuItem, MenuTag } from "./menu-types";
+import type { AddOn, Category, CategorySlug, MenuItem, MenuTag } from "../src/lib/menu-types";
 
 export const categories: Category[] = [
   { slug: "salads", name: "Salads & bowls" },
@@ -55,7 +56,16 @@ export const menuItems: MenuItem[] = [
       id: "s-hp-chatpata",
       name: "High Protein Chatpata Salad",
       description: "Paneer, chickpeas, sweet corn and crunchy veggies in a tangy chaat dressing.",
-      ingredients: ["Paneer", "Chickpeas", "Sweet corn", "Cherry tomato", "Cucumber", "Lettuce", "Chaat masala", "Lemon"],
+      ingredients: [
+        "Paneer",
+        "Chickpeas",
+        "Sweet corn",
+        "Cherry tomato",
+        "Cucumber",
+        "Lettuce",
+        "Chaat masala",
+        "Lemon",
+      ],
       price: 249,
       protein: 24,
       kcal: 380,
@@ -346,3 +356,18 @@ export const menuItems: MenuItem[] = [
 ];
 
 export const todaysPickId = "s-hp-chatpata";
+
+// Café details – placeholders until the owner fills them in under Settings.
+export const cafe = {
+  name: "Healthy Hunger",
+  promise: "100% veg. Protein from real food.",
+  address: "Address to be confirmed",
+  mapUrl: "https://maps.google.com/?q=Healthy+Hunger+Cafe",
+  phone: "+91 98000 00000",
+  whatsapp: "919800000000",
+  instagram: "healthyhunger",
+  hours: [
+    { days: "Mon – Sat", time: "7:30 am – 10:30 pm" },
+    { days: "Sunday", time: "8:00 am – 9:00 pm" },
+  ],
+};

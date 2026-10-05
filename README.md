@@ -34,7 +34,7 @@ pnpm typecheck && pnpm lint && pnpm build
 
 | Path | What |
 |---|---|
-| `prisma/schema.prisma` | Data model (money in paise) · `prisma/seed.ts` initial data |
+| `prisma/schema.prisma` | Data model (money in paise) · `prisma/seed.ts` + `seed-data.ts` initial menu and café details |
 | `src/app/page.tsx`, `src/app/menu/` | Landing page and QR menu (read from the DB, cached; edits refresh instantly) |
 | `src/app/admin/` | Staff login and dashboard; `(dashboard)/menu` is the menu manager |
 | `src/lib/auth/` | Sessions (signed cookie), password hashing, data-access checks |

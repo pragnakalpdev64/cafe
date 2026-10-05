@@ -47,8 +47,9 @@ Legend: **Files** = where the work goes · **Done when** = the check that closes
 - [x] **P1-08 Sold-out switch (staff too)** – one-tap toggle in item list; staff allowed.
   Done when: staff marks item sold out; card shows "Sold out" on `/menu`.
   ✅ Built 4 Oct: staff see only sold-out switches.
-- [ ] **P1-09 Move seed data out of `src/`** – `src/lib/mock-menu.ts` is now only used by `prisma/seed.ts`; move it to `prisma/seed-data.ts`, update imports + README.
+- [x] **P1-09 Move seed data out of `src/`** – `src/lib/mock-menu.ts` is now only used by `prisma/seed.ts`; move it to `prisma/seed-data.ts`, update imports + README.
   Done when: nothing in `src/` imports it; `pnpm db:seed` + build pass.
+  ✅ 5 Oct: now `prisma/seed-data.ts` (menu + café defaults); `src/lib/cafe.ts` keeps only `NUTRITION_NOTE`.
 
 ## Phase 2A – Selection-only v1 (current scope, decided 5 Oct 2026)
 Customers don't place orders and no totals are shown. They pick items; staff see each table's (or phone number's) list in the dashboard.
@@ -84,7 +85,8 @@ Customers don't place orders and no totals are shown. They pick items; staff see
 - [ ] **P2-10 (later) Order status page** – `src/app/order/[id]/page.tsx` with polling.
 - [x] **P2-11 Privacy page** – `src/app/privacy/page.tsx`, linked from footer + form.
   ✅ Built 5 Oct: describes the selection-only flow; lists auto-deleted after 24 h (`purgeOldSelections`). Have it legally checked before launch.
-- [ ] **P2-12 Perf check** – Lighthouse on `/menu`, throttled 4G < 2 s; no three.js in menu bundle.
+- [x] **P2-12 Perf check** – Lighthouse on `/menu`, throttled 4G < 2 s; no three.js in menu bundle.
+  ✅ 5 Oct, prod build, Lighthouse mobile with devtools throttling (562 ms RTT, 1.5 Mbps, CPU ×4): LCP 1.7–1.8 s, perf 94, CLS 0; no three.js in the 14 menu scripts (334 KiB). Fix: menu cards no longer render hidden for an entrance animation (`AnimatePresence initial={false}`); favicon 149 KB → small. Follow-up idea: TTI 4.8 s – lazy-load the item/list sheets if taps feel slow on phones.
 
 ## Phase 3 – Live dashboard
 - [ ] **P3-01 Live orders API** – `src/app/api/orders/live/route.ts` (staff auth, changes since timestamp).
@@ -106,8 +108,10 @@ Customers don't place orders and no totals are shown. They pick items; staff see
 - [ ] **P4-02 Customer profile** – history, visits, spend, favourites, notes, consent.
 - [ ] **P4-03 Delete-on-request + CSV export** (owner) – `src/app/api/customers/export/route.ts`.
 - [ ] **P4-04 Reports** – today, by type, top items, by hour/day/month (Recharts).
-- [ ] **P4-05 Tables & QR** ⛔ table count – add/rename tables, print-ready QR cards.
-- [ ] **P4-06 Settings** – café details, ordering on/off, tax %, staff accounts (owner).
+- [x] **P4-05 Tables & QR** – add/rename tables, print-ready QR cards.
+  ✅ 5 Oct: `/admin/tables` (add, rename keeps QR slug, seats, on/off, remove) + `/admin/print/tables` (4 cards per A4, warns while SITE_URL is localhost). Still need the real table count from the café (6 seeded).
+- [x] **P4-06 Settings** – café details, ordering on/off, tax %, staff accounts (owner).
+  ✅ 5 Oct: `/admin/settings` – Café (details, hours, Today's pick, "Guests can make lists" switch), Staff logins (create with one-time password, new password, switch off – both end their sessions), My password. Tax % left out while there are no totals.
 
 ## Phase 5 – Launch
 - [ ] **P5-01 Docker Compose** – Next.js + Postgres + Caddy; production env.

@@ -48,7 +48,15 @@ type Props = {
   initialItemId?: string;
 };
 
-export function MenuBrowser({ categories, items, addOns, orderingEnabled, table, tables, initialItemId }: Props) {
+export function MenuBrowser({
+  categories,
+  items,
+  addOns,
+  orderingEnabled,
+  table,
+  tables,
+  initialItemId,
+}: Props) {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filter[]>([]);
   const [active, setActive] = useState<CategorySlug>(categories[0]?.slug);
@@ -74,7 +82,9 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
     const io = new IntersectionObserver(
       (entries) => {
         if (clickScrolling.current) return;
-        const top = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        const top = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
         if (top) setActive(top.target.getAttribute("data-category") as CategorySlug);
       },
       { rootMargin: "-140px 0px -60% 0px" },
@@ -92,7 +102,8 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
     setTimeout(() => (clickScrolling.current = false), 700);
   };
 
-  const toggleFilter = (f: Filter) => setFilters((prev) => (prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]));
+  const toggleFilter = (f: Filter) =>
+    setFilters((prev) => (prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]));
 
   return (
     <div className="min-h-svh bg-background pb-32">
@@ -100,10 +111,16 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
         <div
           aria-hidden
           className="absolute inset-0"
-          style={{ background: "radial-gradient(70% 90% at 90% 0%, rgba(255,138,0,0.38), transparent 60%), radial-gradient(50% 70% at 0% 100%, rgba(34,197,94,0.3), transparent 60%)" }}
+          style={{
+            background:
+              "radial-gradient(70% 90% at 90% 0%, rgba(255,138,0,0.38), transparent 60%), radial-gradient(50% 70% at 0% 100%, rgba(34,197,94,0.3), transparent 60%)",
+          }}
         />
         <div className="relative mx-auto flex max-w-2xl items-center justify-between">
-          <Link href="/" className="-ml-2 inline-flex items-center gap-1 rounded-full px-2 py-2 text-sm text-white/85 hover:text-white">
+          <Link
+            href="/"
+            className="-ml-2 inline-flex items-center gap-1 rounded-full px-2 py-2 text-sm text-white/85 hover:text-white"
+          >
             <ChevronLeft className="size-4" aria-hidden /> Healthy Hunger
           </Link>
           <ThemeToggle className="text-white hover:bg-white/10 hover:text-white" />
@@ -115,7 +132,7 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
             </span>
             <div>
               <h1 className="text-4xl font-bold">Menu</h1>
-              <p className="tagline -mt-1 text-[10px] text-surface-accent">Eat well, live well</p>
+              <p className="-mt-1 tagline text-[10px] text-surface-accent">Eat well, live well</p>
             </div>
           </div>
           <p className="mt-3 text-white/85">
@@ -129,7 +146,7 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
           </p>
           {!orderingEnabled && (
             <p className="mt-3 inline-block rounded-full bg-white/15 px-3 py-1 text-sm">
-              Ordering is paused – please order at the counter.
+              The menu is view-only right now – please order at the counter.
             </p>
           )}
         </div>
@@ -139,7 +156,10 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
         <div className="mx-auto max-w-2xl rounded-3xl border border-border bg-background/85 p-2 shadow-[0_18px_40px_-26px_rgba(15,92,44,0.5)] backdrop-blur-xl">
           <label className="relative block">
             <span className="sr-only">Search the menu</span>
-            <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Search
+              className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
             <input
               type="search"
               value={query}
@@ -160,7 +180,7 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
           </label>
 
           <LayoutGroup>
-            <nav aria-label="Categories" className="mt-2 flex gap-1 overflow-x-auto [scrollbar-width:none]">
+            <nav aria-label="Categories" className="mt-2 flex [scrollbar-width:none] gap-1 overflow-x-auto">
               {categories.map((c) => {
                 const isActive = c.slug === active;
                 const empty = !grouped.some((g) => g.slug === c.slug);
@@ -190,7 +210,7 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
             </nav>
           </LayoutGroup>
 
-          <div className="mt-2 flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+          <div className="mt-2 flex [scrollbar-width:none] gap-2 overflow-x-auto pb-0.5">
             {FILTERS.map((f) => {
               const on = filters.includes(f.id);
               return (
@@ -208,7 +228,11 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
                 >
                   <f.icon className="size-3.5" aria-hidden />
                   {f.label}
-                  {f.hint && <span className={cn("text-xs", on ? "opacity-80" : "text-muted-foreground")}>{f.hint}</span>}
+                  {f.hint && (
+                    <span className={cn("text-xs", on ? "opacity-80" : "text-muted-foreground")}>
+                      {f.hint}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -237,9 +261,15 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
               {group.name}
             </h2>
             <div className="grid gap-5">
-              <AnimatePresence mode="popLayout">
+              {/* initial={false}: cards are visible in the server HTML, so the menu paints before JS loads */}
+              <AnimatePresence mode="popLayout" initial={false}>
                 {group.items.map((item) => (
-                  <MenuItemCard key={item.id} item={item} orderingEnabled={orderingEnabled} onOpen={setOpenItem} />
+                  <MenuItemCard
+                    key={item.id}
+                    item={item}
+                    orderingEnabled={orderingEnabled}
+                    onOpen={setOpenItem}
+                  />
                 ))}
               </AnimatePresence>
             </div>
@@ -249,7 +279,12 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, table,
         <p className="mt-4 rounded-2xl bg-secondary/50 p-4 text-sm text-muted-foreground">{NUTRITION_NOTE}</p>
       </main>
 
-      <ItemSheet item={openItem} addOns={addOns} orderingEnabled={orderingEnabled} onClose={() => setOpenItem(null)} />
+      <ItemSheet
+        item={openItem}
+        addOns={addOns}
+        orderingEnabled={orderingEnabled}
+        onClose={() => setOpenItem(null)}
+      />
       {orderingEnabled && <CartBar tables={tables} fixedTable={table} />}
     </div>
   );
