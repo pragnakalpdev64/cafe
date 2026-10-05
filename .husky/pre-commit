@@ -1,0 +1,5 @@
+# fast: format + lint only the staged files
+pnpm exec lint-staged
+# whole-project checks that a single file can't catch
+pnpm typecheck
+pnpm test

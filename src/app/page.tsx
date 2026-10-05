@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { CafeJsonLd } from "@/components/landing/cafe-json-ld";
 import { Hero } from "@/components/landing/hero";
 import { Bestsellers, OurPromise, TodaysPick, VisitUs } from "@/components/landing/sections";
 import { SiteFooter } from "@/components/landing/site-footer";
@@ -14,6 +15,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <CafeJsonLd cafe={cafe} />
       <SiteHeader />
       <main>
         {pick && <Hero pick={{ name: pick.name, protein: pick.protein, kcal: pick.kcal }} />}

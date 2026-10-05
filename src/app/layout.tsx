@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Baloo_2, Figtree, IBM_Plex_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { SITE_URL } from "@/lib/site-url";
 import "./globals.css";
 
 // Rounded, friendly display face named in the brand guide
@@ -23,6 +24,10 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: SITE_URL,
+  applicationName: "Healthy Hunger",
+  openGraph: { type: "website", siteName: "Healthy Hunger", locale: "en_IN" },
+  twitter: { card: "summary_large_image" },
   title: {
     default: "Healthy Hunger – Eat well, live well | 100% veg café",
     template: "%s · Healthy Hunger",

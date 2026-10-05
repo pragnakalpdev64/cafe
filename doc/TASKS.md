@@ -4,7 +4,7 @@ One task = one session. Prompt: **"Do task P1-03 from doc/TASKS.md."**
 Tick `[x]` when done. Each task ends with `pnpm typecheck && pnpm lint` passing.
 Status board (for the team): https://claude.ai/artifact/GC4ttoJYv6kkz93LDh6oAa – after ticking tasks, regenerate with `node scripts/status-board.mjs <scratch>/build-board.html` and republish to that URL.
 
-**Next up (in order):** P2A-01 → P2A-02 → P2A-03 → P2A-04 → P2-11 → P2-03 → P2-12. Order placing (P2-07–P2-10, most of Phase 3) is deferred until the owner asks for it. Run P0-02 in parallel once a 3D scan is chosen.
+**Next up (in order):** P2-12 → P1-09 → P4-05 → P4-06 → P5-01 → P5-02 → P5-03 → P5-04 → P5-06. This is the shortest path to launching the selection-only v1 (QR cards, owner settings + staff logins, deploy). Order placing (P2-07–P2-10, most of Phase 3) waits until the owner asks; run P0-02 in parallel once a 3D scan is chosen.
 Phases and design reasoning live in [`PLAN.md`](./PLAN.md); scope in [`goal`](./goal).
 
 Legend: **Files** = where the work goes · **Done when** = the check that closes it · ⛔ = blocked by an open question (PLAN.md §5).
@@ -71,7 +71,8 @@ Customers don't place orders and no totals are shown. They pick items; staff see
 - [x] **P2-02 Landing scroll story** – camera moves bowl → "nutrition explode" → Today's Pick (GSAP or drei `ScrollControls`).
   Done when: smooth on laptop; low GPU tier / reduced motion gets poster only.
   ✅ Built 4 Oct (salad bowl, motion `useScroll`); realism rework tracked in P0-02.
-- [ ] **P2-03 SEO** – metadata, OG image, Maps link, `sitemap`/`robots`.
+- [x] **P2-03 SEO** – metadata, OG image, Maps link, `sitemap`/`robots`.
+  ✅ Built 5 Oct: `opengraph-image.jpg` (64 KB, WhatsApp-safe), `robots.ts` (hides /admin, /api, /t), `sitemap.ts`, schema.org café JSON-LD. Set `SITE_URL` to the real domain at deploy (P5-02).
 - [x] **P2-04 Menu filters + search** – High protein (≥15 g), Light (<300 kcal), Bestseller, name search.
 - [ ] **P2-05 Table route** (superseded by P2A-01) – `src/app/t/[table]/page.tsx` reuses menu, table pre-filled; unknown/inactive table → `/menu`.
 - [x] **P2-06 View-only mode** – ordering-off setting hides cart/ordering with a notice.
@@ -81,7 +82,8 @@ Customers don't place orders and no totals are shown. They pick items; staff see
 - [ ] **P2-09 (later) Place-order action** (tax from `CafeSettings.taxBasisPoints`, 0 until GST is confirmed) – server pricing from DB, one open order per table, per-phone hourly limit, ordering-off check, customer upsert, status log.
   Done when: unit tests (Vitest) cover pricing + guard rails.
 - [ ] **P2-10 (later) Order status page** – `src/app/order/[id]/page.tsx` with polling.
-- [ ] **P2-11 Privacy page** – `src/app/privacy/page.tsx`, linked from footer + form.
+- [x] **P2-11 Privacy page** – `src/app/privacy/page.tsx`, linked from footer + form.
+  ✅ Built 5 Oct: describes the selection-only flow; lists auto-deleted after 24 h (`purgeOldSelections`). Have it legally checked before launch.
 - [ ] **P2-12 Perf check** – Lighthouse on `/menu`, throttled 4G < 2 s; no three.js in menu bundle.
 
 ## Phase 3 – Live dashboard

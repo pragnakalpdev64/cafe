@@ -1,5 +1,6 @@
 "use server";
 
+import { purgeOldSelections } from "@/lib/data/selections";
 import { db } from "@/lib/db";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/request-ip";
@@ -26,7 +27,10 @@ export async function syncSelection(input: SelectionInput): Promise<SyncResult> 
   }
 
   const table = tableSlug
-    ? await db.cafeTable.findFirst({ where: { qrSlug: tableSlug, active: true }, select: { id: true, label: true } })
+    ? await db.cafeTable.findFirst({
+        where: { qrSlug: tableSlug, active: true },
+        select: { id: true, label: true },
+      })
     : null;
   if (tableSlug && !table) return { ok: false, error: "That table isn't available. Ask staff for help." };
 
@@ -50,6 +54,7 @@ export async function syncSelection(input: SelectionInput): Promise<SyncResult> 
   }
 
   const data = { tableId: table?.id ?? null, phone: table ? null : (phone ?? null), items: lines };
+  await purgeOldSelections();
   await db.selection.upsert({ where: { id: clientId }, create: { id: clientId, ...data }, update: data });
   return { ok: true, tableLabel: table?.label };
 }

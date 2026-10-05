@@ -2,6 +2,7 @@
 
 import { Check, ClipboardList, LoaderCircle, TriangleAlert } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { syncSelection } from "@/app/selection-actions";
 import { Button } from "@/components/ui/button";
@@ -90,7 +91,7 @@ export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTa
             >
               <motion.span key={count} initial={{ scale: 1.35 }} animate={{ scale: 1 }} className="relative">
                 <ClipboardList className="size-6" aria-hidden />
-                <span className="tabular absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-hh-orange text-[11px] font-bold text-hh-ink">
+                <span className="absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-hh-orange tabular text-[11px] font-bold text-hh-ink">
                   {count}
                 </span>
               </motion.span>
@@ -98,7 +99,9 @@ export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTa
                 <span className="block text-base leading-tight font-semibold">Your list</span>
                 <SyncLine sync={status} spot={spot} compact />
               </span>
-              <span className="rounded-full bg-cta px-5 py-3 text-sm font-bold text-cta-foreground">View list</span>
+              <span className="rounded-full bg-cta px-5 py-3 text-sm font-bold text-cta-foreground">
+                View list
+              </span>
             </button>
           </motion.div>
         )}
@@ -111,7 +114,9 @@ export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTa
         >
           <div className="px-5 pt-6 pb-2">
             <SheetTitle className="font-heading text-2xl font-bold">Your list</SheetTitle>
-            <SheetDescription>Staff can see this list. Tell them when you&apos;re ready – pay at the counter.</SheetDescription>
+            <SheetDescription>
+              Staff can see this list. Tell them when you&apos;re ready – pay at the counter.
+            </SheetDescription>
           </div>
 
           <div className="px-5 py-3">
@@ -133,7 +138,12 @@ export function CartBar({ tables, fixedTable }: { tables: TableOption[]; fixedTa
                     <p className="truncate text-xs text-muted-foreground">+ {l.addOnNames.join(", ")}</p>
                   )}
                 </div>
-                <QuantityStepper value={l.quantity} min={0} onChange={(q) => setQuantity(l.key, q)} label={`Quantity of ${l.name}`} />
+                <QuantityStepper
+                  value={l.quantity}
+                  min={0}
+                  onChange={(q) => setQuantity(l.key, q)}
+                  label={`Quantity of ${l.name}`}
+                />
               </li>
             ))}
           </ul>
@@ -176,7 +186,8 @@ function SyncLine({ sync, spot, compact }: { sync: SyncState; spot: GuestSpot | 
     case "needs-spot":
       return (
         <span className={cn(base, !compact && "text-brand-text")} role="status">
-          <TriangleAlert className="size-3.5" aria-hidden /> {compact ? "Add your table so staff can see it" : "Pick your table or add your number"}
+          <TriangleAlert className="size-3.5" aria-hidden />{" "}
+          {compact ? "Add your table so staff can see it" : "Pick your table or add your number"}
         </span>
       );
     case "error":
@@ -269,7 +280,12 @@ function SpotPicker({
               Save
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">Only used so staff can find your list. See our privacy note.</p>
+          <p className="text-xs text-muted-foreground">
+            Only used so staff can find your list.{" "}
+            <Link href="/privacy" className="underline underline-offset-2">
+              Privacy note
+            </Link>
+          </p>
         </form>
       )}
     </fieldset>
