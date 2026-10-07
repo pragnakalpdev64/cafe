@@ -4,7 +4,7 @@ One task = one session. Prompt: **"Do task P1-03 from doc/TASKS.md."**
 Tick `[x]` when done. Each task ends with `pnpm typecheck && pnpm lint` passing.
 Status board (for the team): https://claude.ai/artifact/GC4ttoJYv6kkz93LDh6oAa – after ticking tasks, regenerate with `node scripts/status-board.mjs <scratch>/build-board.html` and republish to that URL.
 
-**Next up (in order):** P4-03 → P4-04, then launch (Phase 5) when the owner asks. Run P0-02 in parallel once a 3D scan is chosen.
+**Next up:** launch (Phase 5) when the owner asks. Run P0-02 in parallel once a 3D scan is chosen.
 Phases and design reasoning live in [`PLAN.md`](./PLAN.md); scope in [`goal`](./goal).
 
 Legend: **Files** = where the work goes · **Done when** = the check that closes it · ⛔ = blocked by an open question (PLAN.md §5).
@@ -73,7 +73,7 @@ Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm
 - [x] **P2B-06 Order history** – find bills/orders by date, number, phone, table; reprint a bill.
   ✅ 6 Oct: `/admin/orders` – date range, one search box (#order / #bill / phone / table / name), type + status, 50 per page, step history, reprint link; staff see masked phones.
 - [x] **P2B-09 One QR, guests order themselves** (owner, 7 Oct) – no per-table QR or tables; guest picks Dine-in/Takeaway, enters name + phone and places the order (NEW); staff Accept → kitchen.
-  ✅ 7 Oct: `placeOrder` in `src/app/selection-actions.ts` (server prices, ordering-off check, rate limits per phone + network, customer upsert); list sheet with Dine-in/Takeaway + details step (`cart-bar.tsx`, name/phone remembered on the device); dashboard "New orders" (chime) → Accept → "Accepted" → kitchen; dine-in bill = one guest's served orders; `/admin/qr` + `/admin/print/qr` (one code, 4 cards per A4); `/t/*` redirects to `/menu`; Tables screen removed. Verified #11 + #12 (same guest) → Bill #8 ₹348 by card; guest phone followed every step.
+  ✅ 7 Oct: `placeOrder` in `src/app/selection-actions.ts` (server prices, ordering-off check, rate limits per phone + network, customer upsert); list sheet with Dine-in/Takeaway + details step (`cart-bar.tsx`, name/phone remembered on the device); dashboard "New orders" (chime) → Accept → "Accepted" → kitchen; dine-in bill = one guest's served orders; `/admin/qr` + `/admin/print/qr` (one code, 4 cards per A4); `/t/*` redirects to `/menu`; Tables screen removed. Verified #11 + #12 (same guest) → Bill #8 ₹348 by card; guest phone followed every step. Owner, 7 Oct: **Dine-in is preselected** (guest can switch to Takeaway).
 - [ ] **P2B-10 Drop unused table data** – remove `CafeTable`, `Order/Bill/Selection.tableId` and Selection READY with a migration (safe once no one needs old table history).
 - [x] **P2B-07 Void bills instead of deleting them** – Undo bill currently deletes the bill, leaving a gap in bill numbers; keep it as VOID with a reason so numbering stays continuous (needed before GST invoices).
   ✅ 7 Oct: migration `void_bills` (`Bill.voidedAt/voidReason/voidedById/voidedOrderNumbers`); "Void bill…" asks a reason (quick picks), keeps the bill, unlinks its orders back to "To bill" and logs "Bill #N voided: reason" on each order; void bills can't be paid; print shows a VOID stamp. Verified: Bill #9 voided → #13 re-billed as #10 (no gap), history + print correct.
@@ -122,8 +122,10 @@ Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm
   ✅ 7 Oct: `/admin/customers` – totals (customers, said yes to offers, total spend), search by name or phone digits, sort by last visit / most visits / top spend / newest, "Offers only" filter, 50 per page, tap-to-call, link to the guest's orders (profile comes in P4-02). Visits = paid bills.
 - [x] **P4-02 Customer profile** – history, visits, spend, favourites, notes, consent.
   ✅ 7 Oct: `/admin/customers/[id]` (name links from the list) – phone (tap to call), visits, total spend, average bill, customer since, last visit; favourite dishes (`favouriteItems` in `src/lib/customer-stats.ts`, tested; cancelled orders ignored); staff notes (save); consent with date + "Stop offers" (owner can only withdraw – opting in stays with the guest); latest 20 orders with status, items, total, bill no. + Full history link.
-- [ ] **P4-03 Delete-on-request + CSV export** (owner) – `src/app/api/customers/export/route.ts`.
-- [ ] **P4-04 Reports** – today, by type, top items, by hour/day/month (Recharts).
+- [x] **P4-03 Delete-on-request + CSV export** (owner) – `src/app/api/customers/export/route.ts`.
+  ✅ 7 Oct: "Delete data" on the profile (confirm) removes the customer record and anonymises their old orders + bills ("Deleted on request", phone removed, amounts kept) and their order rate-limit row. "Export CSV" on the list (follows "Offers only") – owner-only route, `src/lib/csv.ts` (tested: quoting, formula-injection guard, BOM for Excel). Verified: Takeaway Test deleted → orders #9/#10 + bills #6/#7 anonymised.
+- [x] **P4-04 Reports** – today, by type, top items, by hour/day/month (Recharts).
+  ✅ 7 Oct: `/admin/reports` (owner) – Today / Yesterday / 7 / 30 days / This month or custom dates; tiles (sales, bills, average, guests + regulars with 2+ visits, dine-in vs takeaway, cancelled orders); sales by hour, by day (ranges > 1 day), top 10 items, last 12 months. Sales = paid, non-void bills grouped in IST (`src/lib/data/reports.ts`); ranges + buckets in `src/lib/reports.ts` (tested). Charts are plain HTML bars (no Recharts – no extra JS): peak labelled, hover/focus tooltip, "Show as table"; bar colour validated for light + dark (`--chart-1`). Verified against the database (30 days ₹3,853 / 9 bills, yesterday ₹817).
 - [x] **P4-05 Tables & QR** – add/rename tables, print-ready QR cards.
   ✅ 5 Oct: `/admin/tables` (add, rename keeps QR slug, seats, on/off, remove) + `/admin/print/tables` (4 cards per A4, warns while SITE_URL is localhost). Still need the real table count from the café (6 seeded).
 - [x] **P4-06 Settings** – café details, ordering on/off, tax %, staff accounts (owner).

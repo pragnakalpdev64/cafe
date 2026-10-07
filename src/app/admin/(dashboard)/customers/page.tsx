@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ReceiptText, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, ReceiptText, Search } from "lucide-react";
 import Link from "next/link";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -72,12 +72,20 @@ export default async function CustomersPage({ searchParams }: PageProps<"/admin/
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
-      <div>
-        <h1 className="text-3xl font-bold">Customers</h1>
-        <p className="text-sm text-muted-foreground">
-          Everyone who has ordered, built from their orders. Only the owner sees this page and full phone
-          numbers.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold">Customers</h1>
+          <p className="text-sm text-muted-foreground">
+            Everyone who has ordered, built from their orders. Only the owner sees this page and full phone
+            numbers.
+          </p>
+        </div>
+        <Button asChild variant="outline" className="rounded-full">
+          {/* a plain link: the browser downloads the file */}
+          <a href={f.offers ? "/api/customers/export?offers=1" : "/api/customers/export"} download>
+            <Download data-icon="inline-start" /> Export CSV
+          </a>
+        </Button>
       </div>
 
       <dl className="grid grid-cols-3 gap-3">

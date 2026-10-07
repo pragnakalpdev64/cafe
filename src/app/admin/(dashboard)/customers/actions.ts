@@ -52,3 +52,38 @@ export async function withdrawConsent(id: string): Promise<{ ok: true } | { erro
   revalidatePath("/admin/customers");
   return { ok: true };
 }
+
+/** Shown on old orders and bills after a guest's data is deleted. */
+const DELETED_NAME = "Deleted on request";
+
+/**
+ * Delete a guest's personal data on request (DPDP Act). The customer record goes; old orders and
+ * bills keep their amounts for the accounts but lose the name and phone.
+ */
+export async function deleteCustomer(id: string): Promise<{ ok: true } | { error: string }> {
+  const me = await owner();
+  if ("error" in me) return me;
+  const parsed = CustomerId.safeParse(id);
+  if (!parsed.success) return { error: "Customer not found." };
+  const customer = await db.customer.findUnique({
+    where: { id: parsed.data },
+    select: { id: true, phone: true },
+  });
+  if (!customer) return { error: "Customer not found." };
+
+  // bills first: they're found through the orders, which are unlinked next
+  await db.$transaction([
+    db.bill.updateMany({
+      where: { OR: [{ customerPhone: customer.phone }, { orders: { some: { customerId: customer.id } } }] },
+      data: { customerName: DELETED_NAME, customerPhone: null },
+    }),
+    db.order.updateMany({
+      where: { OR: [{ customerId: customer.id }, { customerPhone: customer.phone }] },
+      data: { customerName: DELETED_NAME, customerPhone: null, customerId: null },
+    }),
+    db.rateLimit.deleteMany({ where: { key: `order-phone:${customer.phone}` } }),
+    db.customer.delete({ where: { id: customer.id } }),
+  ]);
+  revalidatePath("/admin/customers");
+  return { ok: true };
+}

@@ -1,9 +1,14 @@
 "use client";
 
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { saveCustomerNotes, withdrawConsent } from "@/app/admin/(dashboard)/customers/actions";
+import {
+  deleteCustomer,
+  saveCustomerNotes,
+  withdrawConsent,
+} from "@/app/admin/(dashboard)/customers/actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useFormAction } from "@/hooks/use-form-action";
@@ -48,6 +53,27 @@ export function StopOffersButton({ id, name }: { id: string; name: string }) {
       onDone={() => toast.success("Offers stopped")}
     >
       Stop offers
+    </ConfirmButton>
+  );
+}
+
+export function DeleteCustomerButton({ id, name }: { id: string; name: string }) {
+  const router = useRouter();
+  return (
+    <ConfirmButton
+      size="sm"
+      variant="ghost"
+      className="rounded-full text-destructive"
+      title={`Delete ${name}'s data?`}
+      description="Use this when the guest asks. Their name, number, notes and visit history are removed for good. Old orders and bills keep their amounts but show “Deleted on request”. This can't be undone."
+      confirmLabel="Delete data"
+      onConfirm={() => deleteCustomer(id)}
+      onDone={() => {
+        toast.success("Customer data deleted");
+        router.replace("/admin/customers");
+      }}
+    >
+      <Trash2 data-icon="inline-start" /> Delete data
     </ConfirmButton>
   );
 }

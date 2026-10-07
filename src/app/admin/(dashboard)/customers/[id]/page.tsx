@@ -1,7 +1,11 @@
 import { ArrowLeft, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CustomerNotesForm, StopOffersButton } from "@/components/admin/customer-profile-actions";
+import {
+  CustomerNotesForm,
+  DeleteCustomerButton,
+  StopOffersButton,
+} from "@/components/admin/customer-profile-actions";
 import { OrderStatusBadge } from "@/components/admin/order-status-badge";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth/dal";
@@ -151,6 +155,13 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
             Showing the latest {RECENT} – see Full history for the rest.
           </p>
         )}
+      </section>
+
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-dashed border-destructive/40 p-4">
+        <p className="text-sm text-muted-foreground">
+          The guest can ask for their data to be deleted (see the privacy note).
+        </p>
+        <DeleteCustomerButton id={customer.id} name={customer.name} />
       </section>
     </div>
   );
