@@ -101,7 +101,12 @@ export function CartBar({
     });
     source.addEventListener("order", () => void loadOrders(orderIds));
     source.onopen = () => void loadOrders(orderIds);
-    return () => source.close();
+    // safety net in case live updates stop (the dashboard does the same)
+    const poll = orderIds ? setInterval(() => void loadOrders(orderIds), 30_000) : undefined;
+    return () => {
+      clearInterval(poll);
+      source.close();
+    };
   }, [hydrated, clientId, orderIds, orderPlaced, loadOrders]);
 
   const active = guestOrders.filter(isActive);

@@ -33,8 +33,7 @@ enum OrderStatus {
 
 enum SelectionStatus {
   SELECTING // guest is still picking
-  READY // guest tapped Confirm – waiting for the cashier to come over
-  CONFIRMED // cashier turned it into an order (kept briefly so the guest's phone can catch up)
+  CONFIRMED // guest placed it as an order (kept briefly so the guest's phone can catch up)
 }
 
 enum PaymentMethod {
@@ -91,20 +90,6 @@ model AddOn {
   updatedAt  DateTime   @updatedAt
 }
 
-model CafeTable {
-  id         String      @id @default(cuid())
-  label      String      @unique // "T1", "Window 2" …
-  seats      Int         @default(2)
-  qrSlug     String      @unique // opens /t/{qrSlug}
-  active     Boolean     @default(true)
-  sortOrder  Int         @default(0)
-  orders     Order[]
-  bills      Bill[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  selections Selection[]
-}
-
 model Customer {
   id               String    @id @default(cuid())
   name             String
@@ -127,8 +112,6 @@ model Order {
   number        Int              @unique @default(autoincrement())
   type          OrderType
   status        OrderStatus      @default(NEW)
-  tableId       String?
-  table         CafeTable?       @relation(fields: [tableId], references: [id], onDelete: SetNull)
   customerId    String?
   customer      Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   // snapshot of who ordered, kept even if the customer record is deleted on request
@@ -140,7 +123,7 @@ model Order {
   taxPaise      Int              @default(0)
   totalPaise    Int
   cancelReason  String?
-  // set when the cashier generates the bill for this table visit
+  // set when the cashier generates the bill for this visit
   billId        String?
   bill          Bill?            @relation(fields: [billId], references: [id], onDelete: SetNull)
   createdById   String? // staff member who confirmed the order with the guest
@@ -153,17 +136,14 @@ model Order {
   @@index([status, createdAt])
   @@index([createdAt])
   @@index([customerPhone])
-  @@index([tableId, status])
   @@index([billId])
 }
 
-/// One bill per table visit (all its served rounds) or per takeaway order.
+/// Dine-in: one bill per guest visit (all their served rounds). Takeaway: one bill per order.
 model Bill {
   id                 String         @id @default(cuid())
   number             Int            @unique @default(autoincrement())
   type               OrderType
-  tableId            String?
-  table              CafeTable?     @relation(fields: [tableId], references: [id], onDelete: SetNull)
   customerName       String
   customerPhone      String?
   subtotalPaise      Int
@@ -262,18 +242,14 @@ model RateLimit {
 /// A guest's live pick list (one per device). Staff watch it live; the cashier turns it into an Order.
 model Selection {
   id        String          @id // random id kept on the guest's device
-  tableId   String?
-  table     CafeTable?      @relation(fields: [tableId], references: [id], onDelete: Cascade)
   takeaway  Boolean         @default(false)
-  code      Int // 4-digit code a takeaway guest shows at the counter
+  code      Int // short random number so staff can tell guests' lists apart
   status    SelectionStatus @default(SELECTING)
-  readyAt   DateTime?
-  orderId   String? // set once the cashier confirms
+  orderId   String? // set once the guest places the order
   // resolved on the server: [{ itemId, name, quantity, addOns: [{ id, name }] }]
   items     Json
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
   @@index([updatedAt])
-  @@index([tableId])
 }

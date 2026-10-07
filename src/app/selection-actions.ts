@@ -68,7 +68,7 @@ export async function syncSelection(input: GuestSelectionInput): Promise<SyncRes
   const row = await db.selection.upsert({
     where: { id: clientId },
     create: { id: clientId, takeaway, code: randomCode(), items: lines },
-    update: { takeaway, items: lines, ...(fresh && { status: "SELECTING", readyAt: null, orderId: null }) },
+    update: { takeaway, items: lines, ...(fresh && { status: "SELECTING", orderId: null }) },
     select: { code: true },
   });
   await publish({ type: "selection", selectionId: clientId });
@@ -138,7 +138,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
     // the live list becomes this order (kept briefly so the phone can catch up if it goes offline)
     await tx.selection.updateMany({
       where: { id: clientId },
-      data: { status: "CONFIRMED", orderId: created.id, readyAt: now },
+      data: { status: "CONFIRMED", orderId: created.id },
     });
     return created;
   });

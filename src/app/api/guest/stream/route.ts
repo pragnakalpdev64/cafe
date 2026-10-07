@@ -35,6 +35,8 @@ export async function GET(req: Request) {
       }
     },
     filter: (e) => {
+      // the server may have missed changes – the phone reloads its orders
+      if (e.type === "resync") return { event: "order", data: {} };
       if (e.type !== "order") return null;
       if (e.selectionId === selectionId) {
         watched.add(e.orderId);

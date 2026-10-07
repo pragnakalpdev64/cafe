@@ -11,45 +11,100 @@ import { db } from "@/lib/db";
 const CHANNEL = "hh_events";
 
 export type RealtimeEvent =
-  /** a guest's live selection changed, became ready, or was removed */
+  /** a guest's live selection changed or was removed */
   | { type: "selection"; selectionId: string }
   /** an order was created or changed; `selectionId` is set when it came from a guest's selection */
-  | { type: "order"; orderId: string; number: number; status: OrderStatus; selectionId?: string };
+  | { type: "order"; orderId: string; number: number; status: OrderStatus; selectionId?: string }
+  /** the listener reconnected and may have missed events – screens should reload */
+  | { type: "resync" };
+
+/** How often the listener checks it still hears its own NOTIFY, and how long it waits. */
+const HEALTH_EVERY_MS = 25_000;
+const HEALTH_TIMEOUT_MS = 5_000;
 
 type Listener = (event: RealtimeEvent) => void;
 
 const g = globalThis as unknown as {
-  hhRealtime?: { emitter: EventEmitter; client?: Client; connecting?: Promise<void>; retry?: NodeJS.Timeout };
+  hhRealtime?: {
+    emitter: EventEmitter;
+    client?: Client;
+    connecting?: Promise<void>;
+    retry?: NodeJS.Timeout;
+    health?: NodeJS.Timeout;
+    /** nonce of the health ping in flight */
+    ping?: string;
+  };
 };
 const state = (g.hhRealtime ??= { emitter: new EventEmitter().setMaxListeners(0) });
 
+/**
+ * Drop a broken (or silent) listener and keep trying while someone is listening. Events may have
+ * been missed meanwhile, so open screens get a `resync` once it's back.
+ */
+function reconnect(client: Client) {
+  if (state.client !== client) return;
+  state.client = undefined;
+  client.end().catch(() => {});
+  if (state.emitter.listenerCount("event") > 0 && !state.retry) {
+    state.retry = setTimeout(() => {
+      state.retry = undefined;
+      void ensureListener()
+        .then(() => state.emitter.emit("event", { type: "resync" } satisfies RealtimeEvent))
+        .catch(() => {});
+    }, 2000);
+  }
+}
+
+/**
+ * A LISTEN connection can go quiet without an error (seen in development), which would freeze
+ * every guest's order status. So the listener NOTIFYs itself now and then and reconnects if
+ * the ping doesn't come back.
+ */
+function checkHealth() {
+  const client = state.client;
+  if (state.emitter.listenerCount("event") === 0) return;
+  if (!client) {
+    // an earlier reconnect failed (e.g. the database was down) – try again
+    if (!state.connecting && !state.retry)
+      void ensureListener()
+        .then(() => state.emitter.emit("event", { type: "resync" } satisfies RealtimeEvent))
+        .catch(() => {});
+    return;
+  }
+  const nonce = Math.random().toString(36).slice(2);
+  state.ping = nonce;
+  client
+    .query("SELECT pg_notify($1, $2)", [CHANNEL, JSON.stringify({ type: "__ping", nonce })])
+    .catch(() => {});
+  setTimeout(() => {
+    if (state.ping !== nonce) return; // answered
+    console.warn("realtime: listener went quiet – reconnecting");
+    reconnect(client);
+  }, HEALTH_TIMEOUT_MS);
+}
+
 async function connect() {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
-  const reconnect = () => {
-    if (state.client !== client) return;
-    state.client = undefined;
-    client.end().catch(() => {});
-    // keep trying while someone is listening
-    if (state.emitter.listenerCount("event") > 0 && !state.retry) {
-      state.retry = setTimeout(() => {
-        state.retry = undefined;
-        void ensureListener().catch(() => {});
-      }, 2000);
-    }
-  };
   client.on("notification", (msg) => {
     if (msg.channel !== CHANNEL || !msg.payload) return;
     try {
-      state.emitter.emit("event", JSON.parse(msg.payload) as RealtimeEvent);
+      const event = JSON.parse(msg.payload) as RealtimeEvent | { type: "__ping"; nonce: string };
+      if (event.type === "__ping") {
+        if (state.ping === event.nonce) state.ping = undefined;
+        return;
+      }
+      state.emitter.emit("event", event);
     } catch {
       // ignore malformed payloads
     }
   });
-  client.on("error", reconnect);
-  client.on("end", reconnect);
+  const onBroken = () => reconnect(client);
+  client.on("error", onBroken);
+  client.on("end", onBroken);
   await client.connect();
   await client.query(`LISTEN ${CHANNEL}`);
   state.client = client;
+  state.health ??= setInterval(checkHealth, HEALTH_EVERY_MS);
 }
 
 function ensureListener() {
