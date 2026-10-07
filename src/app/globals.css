@@ -164,6 +164,8 @@
   --status-ready: var(--hh-green-light);
   --status-done: #7b8a80;
   --status-cancelled: #f97066;
+  /* report bars: validated against the dark card (dataviz validator) */
+  --chart-1: #16a34a;
   --sidebar: #0a2615;
   --sidebar-foreground: #eef5ef;
   --sidebar-primary: var(--hh-orange);
@@ -181,7 +183,8 @@
   body {
     @apply bg-background text-foreground;
   }
-  button:not(:disabled), [role="button"]:not(:disabled) {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
     cursor: pointer;
   }
   html {
@@ -190,11 +193,15 @@
 }
 
 @layer base {
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     @apply font-heading tracking-tight;
   }
   /* Baloo 2 sits tall in its line box – tighten headings */
-  h1, h2 {
+  h1,
+  h2 {
     line-height: 1.05;
   }
   ::selection {
@@ -208,7 +215,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;

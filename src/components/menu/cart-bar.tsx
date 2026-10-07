@@ -65,7 +65,7 @@ export function CartBar({
   // Mirror the list to the dashboard shortly after every change.
   const shared = useRef(false);
   useEffect(() => {
-    if (!hydrated || !kind) return;
+    if (!hydrated) return;
     if (count === 0 && !shared.current) return; // nothing shared yet, nothing to remove
     const timer = setTimeout(async () => {
       setSync("saving");
@@ -156,7 +156,7 @@ export function CartBar({
                 <span className="block text-xs text-white/80">
                   {count === 0
                     ? "Tap to follow your order · add more any time"
-                    : `${count} item${count === 1 ? "" : "s"}${kind ? ` · ${KIND_LABEL[kind]}` : ""}`}
+                    : `${count} item${count === 1 ? "" : "s"} · ${KIND_LABEL[kind]}`}
                 </span>
               </span>
               {count > 0 && (
@@ -191,7 +191,7 @@ export function CartBar({
                 Add more items
               </Button>
             </div>
-          ) : step === "details" && kind ? (
+          ) : step === "details" ? (
             <DetailsStep
               clientId={clientId}
               kind={kind}
@@ -212,7 +212,7 @@ export function CartBar({
               <div className="px-5 pt-6 pb-2">
                 <SheetTitle className="font-heading text-2xl font-bold">Your list</SheetTitle>
                 <SheetDescription>
-                  Choose dine-in or takeaway, check your items, then add your name and number to order.
+                  Dine-in or takeaway? Check your items, then add your name and number to order.
                 </SheetDescription>
               </div>
 
@@ -259,10 +259,10 @@ export function CartBar({
                   </Button>
                   <Button
                     className="ml-auto h-12 flex-1 rounded-full bg-cta text-base font-bold text-cta-foreground hover:bg-hh-orange-light"
-                    disabled={!kind || count === 0}
+                    disabled={count === 0}
                     onClick={() => setStep("details")}
                   >
-                    {kind ? "Next – your details" : "Choose dine-in or takeaway"}
+                    Next – your details
                   </Button>
                 </div>
               </div>
@@ -429,7 +429,7 @@ function SyncLine({ sync }: { sync: Sync }) {
   return null;
 }
 
-function KindPicker({ kind, onChange }: { kind: OrderKind | null; onChange: (kind: OrderKind) => void }) {
+function KindPicker({ kind, onChange }: { kind: OrderKind; onChange: (kind: OrderKind) => void }) {
   return (
     <div className="inline-flex rounded-full bg-muted p-1" role="radiogroup" aria-label="Dine-in or takeaway">
       {(["DINE_IN", "PARCEL"] as const).map((k) => (

@@ -26,7 +26,8 @@ type CartState = {
   /** random id for this device: its live selection on the dashboard */
   clientId: string;
   lines: CartLine[];
-  kind: OrderKind | null;
+  /** dine-in unless the guest switches to takeaway */
+  kind: OrderKind;
   guest: GuestDetails | null;
   /** most recent first, for the order status page */
   orders: PlacedOrder[];
@@ -60,7 +61,7 @@ export const useCart = create<CartState>()(
     (set) => ({
       clientId: newClientId(),
       lines: [],
-      kind: null,
+      kind: "DINE_IN",
       guest: null,
       orders: [],
       showConfirmed: false,
@@ -124,7 +125,7 @@ export const useCart = create<CartState>()(
         ({
           clientId: newClientId(),
           lines: [],
-          kind: null,
+          kind: "DINE_IN",
           guest: null,
           orders: [],
           showConfirmed: false,
@@ -138,7 +139,12 @@ export const useCart = create<CartState>()(
         const orders = state.orders.filter((o) => Date.now() - o.placedAt < KEEP_ORDERS_MS);
         // the confirmation banner is only useful during the visit
         const recent = orders[0] && Date.now() - orders[0].placedAt < 3 * 60 * 60 * 1000;
-        useCart.setState({ orders, showConfirmed: state.showConfirmed && !!recent });
+        // lists saved before dine-in became the default have no kind yet
+        useCart.setState({
+          orders,
+          showConfirmed: state.showConfirmed && !!recent,
+          kind: state.kind ?? "DINE_IN",
+        });
       },
     },
   ),
