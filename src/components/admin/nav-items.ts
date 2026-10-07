@@ -14,7 +14,7 @@ export const NAV: NavItem[] = [
   { href: "/admin/menu", label: "Menu", icon: "menu", roles: ["STAFF", "OWNER"] },
   { href: "/admin/orders", label: "Order history", icon: "history", roles: ["STAFF", "OWNER"] },
   { href: "/admin/qr", label: "QR code", icon: "qr", roles: ["OWNER"] },
-  { href: "/admin/customers", label: "Customers", icon: "customers", roles: ["OWNER"], soon: "Phase 4" },
+  { href: "/admin/customers", label: "Customers", icon: "customers", roles: ["OWNER"] },
   { href: "/admin/reports", label: "Reports", icon: "reports", roles: ["OWNER"], soon: "Phase 4" },
   { href: "/admin/settings", label: "Settings", icon: "settings", roles: ["OWNER"] },
 ];

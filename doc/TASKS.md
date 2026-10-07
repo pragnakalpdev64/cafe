@@ -4,7 +4,7 @@ One task = one session. Prompt: **"Do task P1-03 from doc/TASKS.md."**
 Tick `[x]` when done. Each task ends with `pnpm typecheck && pnpm lint` passing.
 Status board (for the team): https://claude.ai/artifact/GC4ttoJYv6kkz93LDh6oAa – after ticking tasks, regenerate with `node scripts/status-board.mjs <scratch>/build-board.html` and republish to that URL.
 
-**Next up (in order):** P4-01 → P4-02 → P4-03 → P4-04, then launch (Phase 5) when the owner asks. Run P0-02 in parallel once a 3D scan is chosen.
+**Next up (in order):** P4-02 → P4-03 → P4-04, then launch (Phase 5) when the owner asks. Run P0-02 in parallel once a 3D scan is chosen.
 Phases and design reasoning live in [`PLAN.md`](./PLAN.md); scope in [`goal`](./goal).
 
 Legend: **Files** = where the work goes · **Done when** = the check that closes it · ⛔ = blocked by an open question (PLAN.md §5).
@@ -118,7 +118,8 @@ Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm
 - [ ] **P3-13 Mock service** – 20-order run with staff. Done when: no help needed.
 
 ## Phase 4 – Customers & reports
-- [ ] **P4-01 Customer list + search** (owner).
+- [x] **P4-01 Customer list + search** (owner).
+  ✅ 7 Oct: `/admin/customers` – totals (customers, said yes to offers, total spend), search by name or phone digits, sort by last visit / most visits / top spend / newest, "Offers only" filter, 50 per page, tap-to-call, link to the guest's orders (profile comes in P4-02). Visits = paid bills.
 - [ ] **P4-02 Customer profile** – history, visits, spend, favourites, notes, consent.
 - [ ] **P4-03 Delete-on-request + CSV export** (owner) – `src/app/api/customers/export/route.ts`.
 - [ ] **P4-04 Reports** – today, by type, top items, by hour/day/month (Recharts).
