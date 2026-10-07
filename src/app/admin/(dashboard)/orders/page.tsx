@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Printer, Search } from "lucide-react";
 import Link from "next/link";
 import { z } from "zod";
 import { ORDER_STATUS, OrderStatusBadge } from "@/components/admin/order-status-badge";
+import { TextReceiptButton } from "@/components/admin/receipt-sms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -11,6 +12,7 @@ import { db } from "@/lib/db";
 import { formatINR } from "@/lib/format";
 import { toRupees } from "@/lib/money";
 import { maskPhone } from "@/lib/phone-mask";
+import { RECEIPT_SMS_ENABLED } from "@/lib/receipt";
 
 export const metadata = { title: "Order history" };
 
@@ -72,7 +74,16 @@ export default async function OrderHistoryPage({ searchParams }: PageProps<"/adm
       take: PAGE_SIZE,
       include: {
         items: true,
-        bill: { select: { id: true, number: true, paymentMethod: true, paidAt: true, totalPaise: true } },
+        bill: {
+          select: {
+            id: true,
+            number: true,
+            paymentMethod: true,
+            paidAt: true,
+            totalPaise: true,
+            customerPhone: true,
+          },
+        },
         statusLogs: { orderBy: { createdAt: "asc" }, include: { changedBy: { select: { name: true } } } },
       },
     }),
@@ -230,6 +241,9 @@ export default async function OrderHistoryPage({ searchParams }: PageProps<"/adm
                     {o.bill.number}
                   </Link>
                 </Button>
+              )}
+              {RECEIPT_SMS_ENABLED && o.bill?.paidAt && o.bill.customerPhone && (
+                <TextReceiptButton bill={{ id: o.bill.id, number: o.bill.number }} />
               )}
             </div>
           </li>

@@ -16,6 +16,8 @@ import {
 import { billFromOrders } from "@/lib/billing";
 import { billTotals, priceLines } from "@/lib/pricing";
 import { publish } from "@/lib/realtime";
+import { maskPhone } from "@/lib/phone-mask";
+import { RECEIPT_SMS_ENABLED, receiptMessage, smsLink } from "@/lib/receipt";
 import { SelectionLinesSchema } from "@/lib/validators/selection";
 
 type Fail = { ok: false; error: string; problems?: string[] };
@@ -376,4 +378,48 @@ export async function voidBill(billId: string, reason: string): Promise<{ ok: tr
   for (const o of bill.orders)
     await publish({ type: "order", orderId: o.id, number: o.number, status: o.status });
   return { ok: true };
+}
+
+/* ------------------------------ receipt SMS ------------------------------ */
+
+export type ReceiptSms = { ok: true; to: string; text: string; href: string } | Fail;
+
+/**
+ * The receipt text for a paid bill and an sms: link that opens the counter phone's messages app
+ * with it filled in. Staff see the number masked; the full number is only inside the link.
+ */
+export async function receiptSms(billId: string): Promise<ReceiptSms> {
+  if (!RECEIPT_SMS_ENABLED) return { ok: false, error: "Texting receipts is switched off." };
+  const me = await staff();
+  if ("ok" in me) return me;
+  const id = z.string().min(1).max(40).safeParse(billId);
+  if (!id.success) return { ok: false, error: "Bill not found." };
+  const bill = await db.bill.findUnique({
+    where: { id: id.data },
+    select: {
+      number: true,
+      totalPaise: true,
+      paymentMethod: true,
+      paidAt: true,
+      voidedAt: true,
+      customerPhone: true,
+    },
+  });
+  if (!bill) return { ok: false, error: "Bill not found." };
+  if (bill.voidedAt) return { ok: false, error: `Bill #${bill.number} is void.` };
+  if (!bill.paidAt) return { ok: false, error: `Bill #${bill.number} isn't paid yet.` };
+  if (!bill.customerPhone) return { ok: false, error: "There's no phone number on this bill." };
+
+  const text = receiptMessage({
+    cafeName: (await getCafeDetails()).name,
+    number: bill.number,
+    totalPaise: bill.totalPaise,
+    paymentMethod: bill.paymentMethod,
+  });
+  return {
+    ok: true,
+    to: me.role === "OWNER" ? bill.customerPhone : maskPhone(bill.customerPhone),
+    text,
+    href: smsLink(bill.customerPhone, text),
+  };
 }

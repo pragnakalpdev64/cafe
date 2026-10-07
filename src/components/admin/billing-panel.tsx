@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import type { LiveBill, LiveOrder } from "@/lib/data/live";
 import { formatINR } from "@/lib/format";
 import { toRupees } from "@/lib/money";
+import { RECEIPT_SMS_ENABLED } from "@/lib/receipt";
+import { ReceiptSmsDialog } from "./receipt-sms";
 import { cn } from "@/lib/utils";
 
 type ToBill = {
@@ -65,7 +67,8 @@ export function BillingPanel({
   onChanged: () => void;
 }) {
   const pending = toBill(orders);
-  if (pending.length === 0 && bills.length === 0) return null;
+  // kept here, not on the bill card: the card disappears once the bill is paid
+  const [receipt, setReceipt] = useState<{ id: string; number: number } | null>(null);
   return (
     <>
       {pending.length > 0 && (
@@ -88,11 +91,12 @@ export function BillingPanel({
           </h2>
           <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {bills.map((b) => (
-              <BillCard key={b.id} bill={b} onChanged={onChanged} />
+              <BillCard key={b.id} bill={b} onChanged={onChanged} onPaid={setReceipt} />
             ))}
           </ul>
         </section>
       )}
+      {RECEIPT_SMS_ENABLED && <ReceiptSmsDialog bill={receipt} onClose={() => setReceipt(null)} />}
     </>
   );
 }
@@ -146,14 +150,27 @@ const METHODS = [
   { id: "CARD", label: "Card", icon: CreditCard },
 ] as const;
 
-function BillCard({ bill, onChanged }: { bill: LiveBill; onChanged: () => void }) {
+function BillCard({
+  bill,
+  onChanged,
+  onPaid,
+}: {
+  bill: LiveBill;
+  onChanged: () => void;
+  onPaid: (bill: { id: string; number: number }) => void;
+}) {
   const [pending, start] = useTransition();
   const [voiding, setVoiding] = useState(false);
-  const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>, success: string) =>
+  const run = (
+    fn: () => Promise<{ ok: true } | { ok: false; error: string }>,
+    success: string,
+    after?: () => void,
+  ) =>
     start(async () => {
       const res = await fn();
       if (res.ok) {
         toast.success(success);
+        after?.();
         onChanged();
       } else toast.error(res.error);
     });
@@ -183,7 +200,13 @@ function BillCard({ bill, onChanged }: { bill: LiveBill; onChanged: () => void }
             key={m.id}
             disabled={pending}
             className="rounded-full"
-            onClick={() => run(() => markBillPaid(bill.id, m.id), `Bill #${bill.number} paid by ${m.label}`)}
+            onClick={() =>
+              run(
+                () => markBillPaid(bill.id, m.id),
+                `Bill #${bill.number} paid by ${m.label}`,
+                RECEIPT_SMS_ENABLED ? () => onPaid({ id: bill.id, number: bill.number }) : undefined,
+              )
+            }
           >
             <m.icon data-icon="inline-start" /> {m.label}
           </Button>
