@@ -196,7 +196,8 @@ function OrderCard({
               <Pencil data-icon="inline-start" /> Edit items
             </Button>
           )}
-          {canCancel(o.status) && (
+          {o.paid && <span className="text-sm font-semibold text-brand-text">Paid</span>}
+          {canCancel(o.status, o.paid) && (
             <Button
               size="sm"
               variant="ghost"

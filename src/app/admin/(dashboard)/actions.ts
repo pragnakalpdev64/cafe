@@ -5,7 +5,14 @@ import { AuthError, assertUser, type CurrentUser } from "@/lib/auth/dal";
 import { getCafeDetails } from "@/lib/data/menu";
 import { loadMenuPrices } from "@/lib/data/menu-prices";
 import { db } from "@/lib/db";
-import { ACTION_LABEL, canCancel, canEditItems, nextStatus, type OrderAction } from "@/lib/order-flow";
+import {
+  ACTION_LABEL,
+  canCancel,
+  canEditItems,
+  nextStatus,
+  type OrderAction,
+  statusOnPayment,
+} from "@/lib/order-flow";
 import { billFromOrders } from "@/lib/billing";
 import { billTotals, priceLines } from "@/lib/pricing";
 import { publish } from "@/lib/realtime";
@@ -202,10 +209,12 @@ export async function advanceOrder(orderId: string, action: OrderAction): Promis
   if (!id.success || !(action in ACTION_LABEL)) return { ok: false, error: "Order not found." };
   const order = await db.order.findUnique({
     where: { id: id.data },
-    select: { id: true, number: true, status: true, type: true },
+    select: { id: true, number: true, status: true, type: true, bill: { select: { paidAt: true } } },
   });
   if (!order) return { ok: false, error: "Order not found." };
-  const to = nextStatus(action, order.status, order.type);
+  const next = nextStatus(action, order.status, order.type);
+  // a takeaway paid at the counter before pickup is finished once it's picked up
+  const to = next === "SERVED" && order.bill?.paidAt ? "PAID" : next;
   if (!to)
     return {
       ok: false,
@@ -220,7 +229,13 @@ export async function advanceOrder(orderId: string, action: OrderAction): Promis
   if (moved.count === 0)
     return { ok: false, error: `Order #${order.number} was just changed by someone else.` };
   await db.orderStatusLog.create({
-    data: { orderId: order.id, fromStatus: order.status, toStatus: to, changedById: me.id },
+    data: {
+      orderId: order.id,
+      fromStatus: order.status,
+      toStatus: to,
+      changedById: me.id,
+      ...(to !== next && { note: ACTION_LABEL[action] }),
+    },
   });
   await publish({ type: "order", orderId: order.id, number: order.number, status: to });
   return { ok: true };
@@ -242,9 +257,14 @@ export async function cancelOrder(orderId: string, reason: string): Promise<{ ok
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   const order = await db.order.findUnique({
     where: { id: parsed.data.orderId },
-    select: { id: true, number: true, status: true },
+    select: { id: true, number: true, status: true, bill: { select: { number: true, paidAt: true } } },
   });
   if (!order) return { ok: false, error: "Order not found." };
+  if (order.bill?.paidAt)
+    return {
+      ok: false,
+      error: `Order #${order.number} is on paid bill #${order.bill.number} and can't be cancelled.`,
+    };
   if (!canCancel(order.status))
     return { ok: false, error: `Order #${order.number} is already ${order.status.toLowerCase()}.` };
 
@@ -348,7 +368,10 @@ const PaymentSchema = z.object({
   method: z.enum(["CASH", "UPI", "CARD"]),
 });
 
-/** Payment taken at the counter: orders become PAID, the table frees up, customer stats update. */
+/**
+ * Payment taken at the counter: orders become PAID (a takeaway not yet picked up stays READY),
+ * the table frees up, customer stats update.
+ */
 export async function markBillPaid(
   billId: string,
   method: "CASH" | "UPI" | "CARD",
@@ -370,12 +393,15 @@ export async function markBillPaid(
       data: { paidAt: now, paymentMethod: parsed.data.method },
     });
     if (paid.count === 0) return false;
-    await tx.order.updateMany({ where: { billId: bill.id }, data: { status: "PAID" } });
+    for (const o of bill.orders) {
+      const to = statusOnPayment(o.status);
+      if (to !== o.status) await tx.order.update({ where: { id: o.id }, data: { status: to } });
+    }
     await tx.orderStatusLog.createMany({
       data: bill.orders.map((o) => ({
         orderId: o.id,
         fromStatus: o.status,
-        toStatus: "PAID" as const,
+        toStatus: statusOnPayment(o.status),
         changedById: me.id,
         note: `Bill #${bill.number} paid by ${label}`,
       })),
@@ -397,7 +423,7 @@ export async function markBillPaid(
   });
   if (!done) return { ok: false, error: `Bill #${bill.number} was just paid by someone else.` };
   for (const o of bill.orders)
-    await publish({ type: "order", orderId: o.id, number: o.number, status: "PAID" });
+    await publish({ type: "order", orderId: o.id, number: o.number, status: statusOnPayment(o.status) });
   return { ok: true };
 }
 

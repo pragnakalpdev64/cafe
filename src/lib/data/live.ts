@@ -34,6 +34,8 @@ export type LiveOrder = {
   tableId: string | null;
   table: string | null;
   billId: string | null;
+  /** its bill is paid (a takeaway can be paid before it is picked up) */
+  paid: boolean;
   customerName: string;
   customerPhone: string | null;
   note: string | null;
@@ -72,7 +74,7 @@ export async function getLiveBoard(role: Role): Promise<LiveBoard> {
     db.order.findMany({
       where: { createdAt: { gte: startOfDay } },
       orderBy: { createdAt: "desc" },
-      include: { items: true, table: { select: { label: true } } },
+      include: { items: true, table: { select: { label: true } }, bill: { select: { paidAt: true } } },
     }),
     db.bill.findMany({
       where: { paidAt: null },
@@ -103,6 +105,7 @@ export async function getLiveBoard(role: Role): Promise<LiveBoard> {
       tableId: o.tableId,
       table: o.table?.label ?? null,
       billId: o.billId,
+      paid: !!o.bill?.paidAt,
       customerName: o.customerName,
       customerPhone: o.customerPhone && (role === "OWNER" ? o.customerPhone : maskPhone(o.customerPhone)),
       note: o.note,

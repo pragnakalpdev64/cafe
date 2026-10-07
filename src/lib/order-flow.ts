@@ -3,7 +3,8 @@ import type { OrderStatus, OrderType } from "@/generated/prisma/enums";
 // The order lifecycle after the cashier confirms (status ACCEPTED). Pure, so it's unit-tested.
 //   dine-in:  ACCEPTED → PREPARING (in kitchen) → SERVED
 //   takeaway: ACCEPTED → PREPARING → READY (to collect) → SERVED (picked up)
-// Cancel is allowed until the food is served. PAID is set later by the bill.
+// Cancel is allowed until the food is served (or the bill is paid). PAID is set by the bill –
+// except a takeaway paid while still waiting at the counter: it stays READY and "Picked up" finishes it as PAID.
 
 export type OrderAction = "toKitchen" | "served" | "readyToCollect" | "pickedUp";
 
@@ -25,7 +26,11 @@ export function availableActions(status: OrderStatus, type: OrderType): OrderAct
   return (Object.keys(NEXT) as OrderAction[]).filter((a) => nextStatus(a, status, type) !== null);
 }
 
-export const canCancel = (status: OrderStatus) => ["NEW", "ACCEPTED", "PREPARING", "READY"].includes(status);
+export const canCancel = (status: OrderStatus, paid = false) =>
+  !paid && ["NEW", "ACCEPTED", "PREPARING", "READY"].includes(status);
+
+/** The status an order gets when its bill is paid. */
+export const statusOnPayment = (status: OrderStatus): OrderStatus => (status === "READY" ? "READY" : "PAID");
 
 /** Items can be changed only before the kitchen starts. */
 export const canEditItems = (status: OrderStatus) => status === "NEW" || status === "ACCEPTED";

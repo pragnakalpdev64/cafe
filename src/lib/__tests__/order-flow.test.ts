@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { availableActions, canCancel, canEditItems, nextStatus } from "@/lib/order-flow";
+import { availableActions, canCancel, canEditItems, nextStatus, statusOnPayment } from "@/lib/order-flow";
 
 describe("order flow", () => {
   it("takes a dine-in order from confirmed to served", () => {
@@ -33,5 +33,12 @@ describe("order flow", () => {
     expect(canCancel("PREPARING")).toBe(true);
     expect(canCancel("SERVED")).toBe(false);
     expect(canCancel("PAID")).toBe(false);
+  });
+
+  it("keeps a takeaway paid before pickup waiting at the counter", () => {
+    expect(statusOnPayment("READY")).toBe("READY");
+    expect(statusOnPayment("SERVED")).toBe("PAID");
+    expect(canCancel("READY", true)).toBe(false);
+    expect(canCancel("READY")).toBe(true);
   });
 });
