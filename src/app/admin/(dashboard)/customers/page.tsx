@@ -145,7 +145,9 @@ export default async function CustomersPage({ searchParams }: PageProps<"/admin/
         {customers.map((c) => (
           <li key={c.id} className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
             <div className="min-w-48 flex-1">
-              <p className="font-semibold">{c.name}</p>
+              <Link href={`/admin/customers/${c.id}`} className="font-semibold hover:underline">
+                {c.name}
+              </Link>
               <p className="tabular text-sm text-muted-foreground">
                 <a href={`tel:+91${c.phone}`} className="hover:underline">
                   {c.phone}
