@@ -6,11 +6,10 @@ import type { SelectionLine } from "@/lib/validators/selection";
 
 export type LiveSelection = {
   id: string;
-  table: string | null;
   takeaway: boolean;
+  /** short random number so staff can tell guests' lists apart */
   code: number;
   status: Exclude<SelectionStatus, "CONFIRMED">;
-  readyAt: string | null;
   updatedAt: string;
   items: SelectionLine[];
 };
@@ -31,8 +30,8 @@ export type LiveOrder = {
   type: OrderType;
   status: OrderStatus;
   cancelReason: string | null;
-  tableId: string | null;
-  table: string | null;
+  /** bills combine one guest's dine-in orders */
+  customerId: string | null;
   billId: string | null;
   /** its bill is paid (a takeaway can be paid before it is picked up) */
   paid: boolean;
@@ -47,7 +46,7 @@ export type LiveOrder = {
 export type LiveBill = {
   id: string;
   number: number;
-  table: string | null;
+  type: OrderType;
   customerName: string;
   totalPaise: number;
   orderNumbers: number[];
@@ -68,19 +67,17 @@ export async function getLiveBoard(role: Role): Promise<LiveBoard> {
   const [selections, orders, bills] = await Promise.all([
     db.selection.findMany({
       where: { status: { not: "CONFIRMED" }, updatedAt: { gt: new Date(Date.now() - 12 * 60 * 60 * 1000) } },
-      orderBy: [{ readyAt: "asc" }, { createdAt: "asc" }],
-      include: { table: { select: { label: true } } },
+      orderBy: { createdAt: "asc" },
     }),
     db.order.findMany({
       where: { createdAt: { gte: startOfDay } },
       orderBy: { createdAt: "desc" },
-      include: { items: true, table: { select: { label: true } }, bill: { select: { paidAt: true } } },
+      include: { items: true, bill: { select: { paidAt: true } } },
     }),
     db.bill.findMany({
       where: { paidAt: null },
       orderBy: { createdAt: "asc" },
       include: {
-        table: { select: { label: true } },
         orders: { select: { number: true }, orderBy: { number: "asc" } },
       },
     }),
@@ -88,11 +85,9 @@ export async function getLiveBoard(role: Role): Promise<LiveBoard> {
   return {
     selections: selections.map((s) => ({
       id: s.id,
-      table: s.table?.label ?? null,
       takeaway: s.takeaway,
       code: s.code,
       status: s.status as LiveSelection["status"],
-      readyAt: s.readyAt?.toISOString() ?? null,
       updatedAt: s.updatedAt.toISOString(),
       items: s.items as SelectionLine[],
     })),
@@ -102,8 +97,7 @@ export async function getLiveBoard(role: Role): Promise<LiveBoard> {
       type: o.type,
       status: o.status,
       cancelReason: o.cancelReason,
-      tableId: o.tableId,
-      table: o.table?.label ?? null,
+      customerId: o.customerId,
       billId: o.billId,
       paid: !!o.bill?.paidAt,
       customerName: o.customerName,
@@ -123,7 +117,7 @@ export async function getLiveBoard(role: Role): Promise<LiveBoard> {
     bills: bills.map((b) => ({
       id: b.id,
       number: b.number,
-      table: b.table?.label ?? null,
+      type: b.type,
       customerName: b.customerName,
       totalPaise: b.totalPaise,
       orderNumbers: b.orders.map((o) => o.number),

@@ -1,6 +1,6 @@
 "use client";
 
-import { BellRing, Bell, BellOff, Eye, Phone, Trash2, Users } from "lucide-react";
+import { Bell, BellOff, Eye, Phone, Trash2, Utensils } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { removeSelection } from "@/app/admin/(dashboard)/actions";
@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import type { LiveBoard as LiveBoardData, LiveSelection } from "@/lib/data/live";
 import type { PublicMenu } from "@/lib/data/menu";
 import { cn } from "@/lib/utils";
-import { ConfirmOrderDialog } from "./confirm-order-dialog";
 import { OrdersPanel } from "./orders-panel";
 
 type Connection = "live" | "reconnecting";
@@ -20,7 +19,7 @@ function ago(iso: string, now: number) {
   return m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
 }
 
-/** Short two-tone chime for "a guest is ready" (Web Audio, no file to load). */
+/** Short two-tone chime for "a new order came in" (Web Audio, no file to load). */
 function chime(ctx: AudioContext) {
   [880, 1320].forEach((freq, i) => {
     const osc = ctx.createOscillator();
@@ -41,10 +40,9 @@ export function LiveBoard({ initial, menu }: { initial: LiveBoardData; menu: Pub
   const [connection, setConnection] = useState<Connection>("live");
   const [skew, setSkew] = useState(() => Date.now() - new Date(initial.serverTime).getTime());
   const [now, setNow] = useState(() => Date.now());
-  const [confirming, setConfirming] = useState<LiveSelection | null>(null);
   const [soundOn, setSoundOn] = useState(false);
   const audio = useRef<AudioContext | null>(null);
-  const knownReady = useRef(new Set(initial.selections.filter((s) => s.status === "READY").map((s) => s.id)));
+  const knownNew = useRef(new Set(initial.orders.filter((o) => o.status === "NEW").map((o) => o.id)));
 
   const refresh = useCallback(async () => {
     try {
@@ -87,11 +85,11 @@ export function LiveBoard({ initial, menu }: { initial: LiveBoardData; menu: Pub
     };
   }, [refresh]);
 
-  // Chime when a guest becomes ready.
+  // Chime when a guest places an order.
   useEffect(() => {
-    const ready = data.selections.filter((s) => s.status === "READY").map((s) => s.id);
-    const fresh = ready.filter((id) => !knownReady.current.has(id));
-    knownReady.current = new Set(ready);
+    const placed = data.orders.filter((o) => o.status === "NEW").map((o) => o.id);
+    const fresh = placed.filter((id) => !knownNew.current.has(id));
+    knownNew.current = new Set(placed);
     if (fresh.length > 0 && soundOn && audio.current) chime(audio.current);
   }, [data, soundOn]);
 
@@ -104,8 +102,7 @@ export function LiveBoard({ initial, menu }: { initial: LiveBoardData; menu: Pub
   };
 
   const serverNow = now - skew;
-  const ready = data.selections.filter((s) => s.status === "READY");
-  const picking = data.selections.filter((s) => s.status === "SELECTING");
+  const picking = data.selections;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -113,8 +110,8 @@ export function LiveBoard({ initial, menu }: { initial: LiveBoardData; menu: Pub
         <div>
           <h1 className="text-3xl font-bold">Live orders</h1>
           <p className="text-sm text-muted-foreground">
-            See what guests pick as they pick it. When a guest taps Confirm, go to them, take their name and
-            number, and confirm the order here.
+            Guests order from the café QR with their name and number. Accept new orders, then send them to the
+            kitchen. You can also watch what guests are picking.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -147,23 +144,7 @@ export function LiveBoard({ initial, menu }: { initial: LiveBoardData; menu: Pub
         </div>
       </div>
 
-      <section aria-labelledby="ready-h" className="space-y-3">
-        <h2 id="ready-h" className="flex items-center gap-2 text-lg font-bold">
-          <BellRing className="size-5 text-brand-text" aria-hidden /> Ready to confirm
-          <span className="text-sm font-normal text-muted-foreground">{ready.length}</span>
-        </h2>
-        {ready.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-            Nobody is waiting. Tables appear here when the guest taps Confirm.
-          </p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {ready.map((s) => (
-              <SelectionCard key={s.id} selection={s} now={serverNow} onConfirm={() => setConfirming(s)} />
-            ))}
-          </div>
-        )}
-      </section>
+      <OrdersPanel orders={data.orders} bills={data.bills} menu={menu} onChanged={refresh} />
 
       <section aria-labelledby="picking-h" className="space-y-3">
         <h2 id="picking-h" className="flex items-center gap-2 text-lg font-bold">
@@ -177,65 +158,37 @@ export function LiveBoard({ initial, menu }: { initial: LiveBoardData; menu: Pub
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {picking.map((s) => (
-              <SelectionCard key={s.id} selection={s} now={serverNow} onConfirm={() => setConfirming(s)} />
+              <SelectionCard key={s.id} selection={s} now={serverNow} />
             ))}
           </div>
         )}
       </section>
-
-      <OrdersPanel orders={data.orders} bills={data.bills} menu={menu} onChanged={refresh} />
-
-      <ConfirmOrderDialog
-        selection={confirming}
-        menu={menu}
-        onClose={() => setConfirming(null)}
-        onConfirmed={(number) => {
-          toast.success(`Order #${number} confirmed`);
-          setConfirming(null);
-          void refresh();
-        }}
-      />
     </div>
   );
 }
 
-function SelectionCard({
-  selection: s,
-  now,
-  onConfirm,
-}: {
-  selection: LiveSelection;
-  now: number;
-  onConfirm: () => void;
-}) {
+function SelectionCard({ selection: s, now }: { selection: LiveSelection; now: number }) {
   const [pending, start] = useTransition();
-  const isReady = s.status === "READY";
   const count = s.items.reduce((n, i) => n + i.quantity, 0);
-  const title = s.table ? `Table ${s.table}` : `Takeaway · code ${s.code}`;
+  const title = `${s.takeaway ? "Takeaway" : "Dine-in"} · guest ${s.code}`;
 
   return (
-    <article
-      className={cn(
-        "flex flex-col rounded-3xl border bg-card p-4",
-        isReady ? "border-hh-orange shadow-[0_12px_30px_-18px_rgba(255,138,0,0.8)]" : "border-border",
-      )}
-    >
+    <article className="flex flex-col rounded-3xl border border-border bg-card p-4">
       <header className="flex items-center gap-2">
         <span className="flex size-8 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-          {s.table ? <Users className="size-4" aria-hidden /> : <Phone className="size-4" aria-hidden />}
+          {s.takeaway ? (
+            <Phone className="size-4" aria-hidden />
+          ) : (
+            <Utensils className="size-4" aria-hidden />
+          )}
         </span>
         <h3 className="flex-1 text-lg font-bold">{title}</h3>
-        {isReady ? (
-          <span className="rounded-full bg-hh-orange px-2.5 py-0.5 text-xs font-bold text-hh-ink">Ready</span>
-        ) : (
-          <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground">
-            <span className="size-1.5 animate-pulse rounded-full bg-hh-green" /> Selecting
-          </span>
-        )}
+        <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground">
+          <span className="size-1.5 animate-pulse rounded-full bg-hh-green" /> Selecting
+        </span>
       </header>
       <p className="mt-1 tabular text-xs text-muted-foreground">
-        {count} item{count === 1 ? "" : "s"} ·{" "}
-        {isReady && s.readyAt ? `ready ${ago(s.readyAt, now)}` : `updated ${ago(s.updatedAt, now)}`}
+        {count} item{count === 1 ? "" : "s"} · updated {ago(s.updatedAt, now)}
       </p>
       <ul className="mt-3 flex-1 space-y-1.5">
         {s.items.map((it, j) => (
@@ -253,17 +206,7 @@ function SelectionCard({
         ))}
       </ul>
       <div className="mt-4 flex items-center gap-2">
-        <Button
-          size="sm"
-          className={cn(
-            "rounded-full",
-            isReady && "bg-cta font-bold text-cta-foreground hover:bg-hh-orange-light",
-          )}
-          variant={isReady ? "default" : "outline"}
-          onClick={onConfirm}
-        >
-          Confirm order
-        </Button>
+        <p className="text-xs text-muted-foreground">Not ordered yet</p>
         <Button
           size="icon-sm"
           variant="ghost"

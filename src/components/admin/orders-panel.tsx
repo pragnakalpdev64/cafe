@@ -20,9 +20,14 @@ import { OrderStatusBadge } from "./order-status-badge";
 
 const GROUPS: { title: string; statuses: OrderStatus[]; hint: string }[] = [
   {
-    title: "Confirmed",
-    statuses: ["NEW", "ACCEPTED"],
-    hint: "Check or edit the items, then send to the kitchen.",
+    title: "New orders",
+    statuses: ["NEW"],
+    hint: "Orders guests place from the QR menu appear here. Check them and accept.",
+  },
+  {
+    title: "Accepted",
+    statuses: ["ACCEPTED"],
+    hint: "Edit the items if needed, then send to the kitchen.",
   },
   {
     title: "In the kitchen",
@@ -134,7 +139,7 @@ function OrderCard({
       <div className="flex items-start gap-2">
         <div className="flex-1">
           <p className="text-lg font-bold">
-            #{o.number} · {o.table ? `Table ${o.table}` : "Takeaway"}
+            #{o.number} · {o.type === "PARCEL" ? "Takeaway" : "Dine-in"}
           </p>
           <p className="text-xs text-muted-foreground">
             {o.customerName}
@@ -179,7 +184,8 @@ function OrderCard({
               disabled={pending}
               className={cn(
                 "rounded-full",
-                a === "toKitchen" && "bg-cta font-bold text-cta-foreground hover:bg-hh-orange-light",
+                (a === "accept" || a === "toKitchen") &&
+                  "bg-cta font-bold text-cta-foreground hover:bg-hh-orange-light",
               )}
               onClick={() => run(a)}
             >
@@ -269,7 +275,7 @@ function EditItemsForm({
     <div className="space-y-4">
       <div>
         <DialogTitle className="text-xl">
-          Edit order #{order.number} · {order.table ? `Table ${order.table}` : "Takeaway"}
+          Edit order #{order.number} · {order.type === "PARCEL" ? "Takeaway" : "Dine-in"}
         </DialogTitle>
         <DialogDescription>
           Change, remove or add items before it goes to the kitchen. Prices update from the menu.

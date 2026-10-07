@@ -2,10 +2,11 @@ import { z } from "zod";
 import { INDIAN_MOBILE } from "./phone";
 import { SelectionLinesSchema } from "./selection";
 
-/** Cashier confirms a guest's selection at the table, with the guest's name and phone. */
-export const ConfirmSelectionSchema = z.object({
-  selectionId: z.uuid(),
-  name: z.string().trim().min(2, "Enter the guest's name").max(60, "Keep the name under 60 characters"),
+/** The guest places their own order from the QR menu, with their name and phone. */
+export const PlaceOrderSchema = z.object({
+  clientId: z.uuid(),
+  takeaway: z.boolean(),
+  name: z.string().trim().min(2, "Enter your name").max(60, "Keep the name under 60 characters"),
   phone: z
     .string()
     .trim()
@@ -13,7 +14,7 @@ export const ConfirmSelectionSchema = z.object({
     .pipe(z.string().regex(INDIAN_MOBILE, "Enter a 10-digit mobile number")),
   note: z.string().trim().max(200, "Keep the note under 200 characters").optional(),
   marketingConsent: z.boolean().default(false),
-  items: SelectionLinesSchema.min(1, "The order has no items"),
+  items: SelectionLinesSchema.min(1, "Your list is empty"),
 });
 
-export type ConfirmSelectionInput = z.input<typeof ConfirmSelectionSchema>;
+export type PlaceOrderInput = z.input<typeof PlaceOrderSchema>;

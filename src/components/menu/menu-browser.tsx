@@ -18,7 +18,7 @@ import {
   type MenuItem,
 } from "@/lib/menu-types";
 import { cn } from "@/lib/utils";
-import { CartBar, type TableOption } from "./cart-bar";
+import { CartBar } from "./cart-bar";
 import { ItemSheet } from "./item-sheet";
 import { MenuItemCard } from "./menu-item-card";
 
@@ -41,22 +41,10 @@ type Props = {
   items: MenuItem[];
   addOns: AddOn[];
   orderingEnabled: boolean;
-  /** set when the guest scanned a table QR */
-  table?: TableOption;
-  /** active tables, so guests on /menu can say where they sit */
-  tables: TableOption[];
   initialItemId?: string;
 };
 
-export function MenuBrowser({
-  categories,
-  items,
-  addOns,
-  orderingEnabled,
-  table,
-  tables,
-  initialItemId,
-}: Props) {
+export function MenuBrowser({ categories, items, addOns, orderingEnabled, initialItemId }: Props) {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filter[]>([]);
   const [active, setActive] = useState<CategorySlug>(categories[0]?.slug);
@@ -135,15 +123,7 @@ export function MenuBrowser({
               <p className="-mt-1 tagline text-[10px] text-surface-accent">Eat well, live well</p>
             </div>
           </div>
-          <p className="mt-3 text-white/85">
-            {table ? (
-              <>
-                You&apos;re at <span className="font-semibold text-white">Table {table.label}</span>
-              </>
-            ) : (
-              "100% vegetarian · protein from real food"
-            )}
-          </p>
+          <p className="mt-3 text-white/85">100% vegetarian · protein from real food</p>
           {!orderingEnabled && (
             <p className="mt-3 inline-block rounded-full bg-white/15 px-3 py-1 text-sm">
               The menu is view-only right now – please order at the counter.
@@ -285,7 +265,7 @@ export function MenuBrowser({
         orderingEnabled={orderingEnabled}
         onClose={() => setOpenItem(null)}
       />
-      {orderingEnabled && <CartBar tables={tables} fixedTable={table} items={items} addOns={addOns} />}
+      {orderingEnabled && <CartBar items={items} addOns={addOns} />}
     </div>
   );
 }

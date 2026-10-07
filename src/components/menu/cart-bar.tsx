@@ -1,49 +1,47 @@
 "use client";
 
-import { BellRing, ChefHat, CircleCheck, ClipboardList, LoaderCircle, TriangleAlert } from "lucide-react";
+import { ArrowLeft, ChefHat, CircleCheck, ClipboardList, LoaderCircle, TriangleAlert } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { type GuestOrder, getGuestOrders, setSelectionReady, syncSelection } from "@/app/selection-actions";
+import { type GuestOrder, getGuestOrders, placeOrder, syncSelection } from "@/app/selection-actions";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { type GuestSpot, itemCount, lineKey, useCart } from "@/lib/cart-store";
+import { Textarea } from "@/components/ui/textarea";
+import { itemCount, lineKey, type OrderKind, useCart } from "@/lib/cart-store";
 import type { AddOn, MenuItem } from "@/lib/menu-types";
 import { cn } from "@/lib/utils";
-import { guestStatusLabel, isActive, OrderTracker } from "./order-tracker";
+import { INDIAN_MOBILE } from "@/lib/validators/phone";
 import { ListLine } from "./list-line";
-
-export type TableOption = { slug: string; label: string };
+import { guestStatusLabel, isActive, OrderTracker } from "./order-tracker";
 
 type Sync = "idle" | "saving" | "saved" | "error";
 
+const KIND_LABEL: Record<OrderKind, string> = { DINE_IN: "Dine-in", PARCEL: "Takeaway" };
+
 /**
- * The guest's list. Staff see it live while the guest picks; "Confirm" tells them the
- * guest is done, and the cashier then confirms the order at the table. No totals here.
- * `fixedTable` comes from a table QR (/t/…); on /menu the guest picks a table or takeaway.
+ * The guest's list. Staff see it live while the guest picks; the guest chooses dine-in or
+ * takeaway, adds their name and number, and places the order. Staff accept it. No totals here.
  */
 export function CartBar({
-  tables,
-  fixedTable,
   items,
   addOns,
 }: {
-  tables: TableOption[];
-  fixedTable?: TableOption;
   /** menu items and add-ons, so guests can change add-ons from the list */
   items: MenuItem[];
   addOns: AddOn[];
 }) {
-  const { clientId, lines, spot, ready, code, orders, showConfirmed } = useCart();
-  const { setQuantity, setAddOns, setSpot, setReady, setCode, orderConfirmed, dismissConfirmed, clear } =
-    useCart.getState();
+  const { clientId, lines, kind, guest, orders, showConfirmed } = useCart();
+  const { setQuantity, setAddOns, setKind, orderPlaced, dismissConfirmed, clear } = useCart.getState();
   const [hydrated, setHydrated] = useState(false);
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"list" | "details">("list");
   const [sync, setSync] = useState<Sync>("idle");
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [readyPending, startReady] = useTransition();
   const [guestOrders, setGuestOrders] = useState<GuestOrder[]>([]);
   const count = itemCount(lines);
   const addOnsFor = useCallback(
@@ -64,33 +62,22 @@ export function CartBar({
     void Promise.resolve(useCart.persist.rehydrate()).then(() => setHydrated(true));
   }, []);
 
-  // A table QR always wins over whatever the guest picked before.
-  useEffect(() => {
-    if (!hydrated || !fixedTable) return;
-    const current = useCart.getState().spot;
-    if (current?.kind !== "table" || current.slug !== fixedTable.slug) {
-      setSpot({ kind: "table", slug: fixedTable.slug, label: fixedTable.label });
-    }
-  }, [hydrated, fixedTable, setSpot]);
-
   // Mirror the list to the dashboard shortly after every change.
   const shared = useRef(false);
   useEffect(() => {
-    if (!hydrated || !spot) return;
+    if (!hydrated || !kind) return;
     if (count === 0 && !shared.current) return; // nothing shared yet, nothing to remove
     const timer = setTimeout(async () => {
       setSync("saving");
       try {
         const res = await syncSelection({
           clientId,
-          ...(spot.kind === "table" ? { tableSlug: spot.slug } : { takeaway: true }),
+          takeaway: kind === "PARCEL",
           items: lines.map((l) => ({ itemId: l.itemId, addOnIds: l.addOnIds, quantity: l.quantity })),
         });
         shared.current = count > 0;
-        if (res.ok) {
-          if (res.code) setCode(res.code);
-          setSync("saved");
-        } else {
+        if (res.ok) setSync("saved");
+        else {
           setSync("error");
           toast.error(res.error);
         }
@@ -99,37 +86,33 @@ export function CartBar({
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [hydrated, lines, spot, clientId, count, setCode]);
+  }, [hydrated, lines, kind, clientId, count]);
 
-  // Live: the cashier confirming this list, and every status change of this guest's orders
-  // (also catches up after being offline – the stream sends the current state on connect).
+  // Live: every status change of this guest's orders (also catches up after being offline –
+  // the stream sends the current state on connect), and orders placed from another tab.
   useEffect(() => {
     if (!hydrated) return;
     const source = new EventSource(`/api/guest/stream?cid=${clientId}&orders=${orderIds}`);
     source.addEventListener("confirmed", (e) => {
       const { orderId, number } = JSON.parse((e as MessageEvent).data) as { orderId: string; number: number };
       if (useCart.getState().orders.some((o) => o.id === orderId)) return;
-      orderConfirmed({ id: orderId, number });
+      orderPlaced({ id: orderId, number });
       shared.current = false;
-      setOpen(true);
     });
     source.addEventListener("order", () => void loadOrders(orderIds));
     source.onopen = () => void loadOrders(orderIds);
     return () => source.close();
-  }, [hydrated, clientId, orderIds, orderConfirmed, loadOrders]);
-
-  const markReady = (next: boolean) =>
-    startReady(async () => {
-      // make sure staff have the latest list before calling them
-      const res = await setSelectionReady(clientId, next);
-      if (res.ok) setReady(next);
-      else toast.error(res.error ?? "Couldn't reach the café. Try again.");
-    });
+  }, [hydrated, clientId, orderIds, orderPlaced, loadOrders]);
 
   const active = guestOrders.filter(isActive);
   // with an empty list, the bar and sheet show the guest's orders instead
   const tracking = count === 0 && (active.length > 0 || (showConfirmed && guestOrders.length > 0));
   const headline = active[0] ?? guestOrders[0];
+
+  const openSheet = () => {
+    setStep("list");
+    setOpen(true);
+  };
 
   return (
     <>
@@ -144,11 +127,8 @@ export function CartBar({
           >
             <button
               type="button"
-              onClick={() => setOpen(true)}
-              className={cn(
-                "mx-auto flex h-16 w-full max-w-xl items-center gap-3 rounded-full pr-2 pl-5 text-left shadow-[0_20px_40px_-12px_rgba(15,92,44,0.6)] ring-1 ring-white/10",
-                ready ? "bg-hh-orange text-hh-ink" : "bg-hh-green-deep text-white",
-              )}
+              onClick={openSheet}
+              className="mx-auto flex h-16 w-full max-w-xl items-center gap-3 rounded-full bg-hh-green-deep pr-2 pl-5 text-left text-white shadow-[0_20px_40px_-12px_rgba(15,92,44,0.6)] ring-1 ring-white/10"
             >
               {count > 0 ? (
                 <motion.span
@@ -157,17 +137,8 @@ export function CartBar({
                   animate={{ scale: 1 }}
                   className="relative"
                 >
-                  {ready ? (
-                    <BellRing className="size-6" aria-hidden />
-                  ) : (
-                    <ClipboardList className="size-6" aria-hidden />
-                  )}
-                  <span
-                    className={cn(
-                      "absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full tabular text-[11px] font-bold",
-                      ready ? "bg-hh-ink text-white" : "bg-hh-orange text-hh-ink",
-                    )}
-                  >
+                  <ClipboardList className="size-6" aria-hidden />
+                  <span className="absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full bg-hh-orange tabular text-[11px] font-bold text-hh-ink">
                     {count}
                   </span>
                 </motion.span>
@@ -179,24 +150,17 @@ export function CartBar({
               <span className="flex-1">
                 <span className="block text-base leading-tight font-semibold">
                   {count === 0
-                    ? `Order #${headline?.number ?? latest?.number} · ${headline ? guestStatusLabel(headline) : "Confirmed"}`
-                    : ready
-                      ? "Staff are on the way"
-                      : "Your list"}
+                    ? `Order #${headline?.number ?? latest?.number} · ${headline ? guestStatusLabel(headline) : "Placed"}`
+                    : "Your list"}
                 </span>
-                <span className={cn("block text-xs", ready ? "text-hh-ink/75" : "text-white/80")}>
+                <span className="block text-xs text-white/80">
                   {count === 0
                     ? "Tap to follow your order · add more any time"
-                    : `${count} item${count === 1 ? "" : "s"}${spot?.kind === "table" ? ` · Table ${spot.label}` : spot?.kind === "takeaway" ? " · Takeaway" : ""}`}
+                    : `${count} item${count === 1 ? "" : "s"}${kind ? ` · ${KIND_LABEL[kind]}` : ""}`}
                 </span>
               </span>
               {count > 0 && (
-                <span
-                  className={cn(
-                    "rounded-full px-5 py-3 text-sm font-bold",
-                    ready ? "bg-hh-ink text-white" : "bg-cta text-cta-foreground",
-                  )}
-                >
+                <span className="rounded-full bg-cta px-5 py-3 text-sm font-bold text-cta-foreground">
                   View list
                 </span>
               )}
@@ -227,33 +191,33 @@ export function CartBar({
                 Add more items
               </Button>
             </div>
+          ) : step === "details" && kind ? (
+            <DetailsStep
+              clientId={clientId}
+              kind={kind}
+              count={count}
+              initial={guest}
+              lines={lines}
+              onBack={() => setStep("list")}
+              onPlaced={(order, details) => {
+                orderPlaced(order, details);
+                shared.current = false;
+                setStep("list");
+                void loadOrders([order.id, ...orders.map((o) => o.id)].slice(0, 10).join(","));
+                toast.success(`Order #${order.number} placed`);
+              }}
+            />
           ) : (
             <>
               <div className="px-5 pt-6 pb-2">
                 <SheetTitle className="font-heading text-2xl font-bold">Your list</SheetTitle>
                 <SheetDescription>
-                  {ready
-                    ? "Staff have been called and can see your list. You can still change it."
-                    : "Staff can see your list. Tap Confirm when you're done and someone will come to take your order."}
+                  Choose dine-in or takeaway, check your items, then add your name and number to order.
                 </SheetDescription>
               </div>
 
               <div className="px-5 py-3">
-                {fixedTable ? (
-                  <p className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1.5 text-sm font-semibold text-secondary-foreground">
-                    Table {fixedTable.label}
-                  </p>
-                ) : (
-                  <SpotPicker tables={tables} spot={spot} onChange={setSpot} disabled={ready} />
-                )}
-                {spot?.kind === "takeaway" && code && (
-                  <p className="mt-3 rounded-2xl bg-accent px-4 py-3 text-sm">
-                    Show this code at the counter:{" "}
-                    <span className="ml-1 tabular text-2xl font-bold tracking-widest text-brand-text">
-                      {code}
-                    </span>
-                  </p>
-                )}
+                <KindPicker kind={kind} onChange={setKind} />
               </div>
 
               <ul className="divide-y divide-border px-5">
@@ -281,43 +245,26 @@ export function CartBar({
               )}
 
               <div className="sticky bottom-0 mt-2 space-y-2 border-t border-border bg-popover/95 px-5 py-4 backdrop-blur">
-                <SyncLine sync={sync} hasSpot={!!spot} />
-                {ready ? (
-                  <div className="flex items-center gap-3">
-                    <p className="flex flex-1 items-center gap-2 font-semibold text-brand-text">
-                      <BellRing className="size-5" aria-hidden /> Staff are on the way
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="rounded-full"
-                      disabled={readyPending}
-                      onClick={() => markReady(false)}
-                    >
-                      Not done yet
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="ghost"
-                      className="rounded-full text-muted-foreground"
-                      onClick={() => {
-                        clear();
-                        setOpen(false);
-                      }}
-                    >
-                      Clear list
-                    </Button>
-                    <Button
-                      className="ml-auto h-12 flex-1 rounded-full bg-cta text-base font-bold text-cta-foreground hover:bg-hh-orange-light"
-                      disabled={!spot || count === 0 || readyPending || sync === "saving"}
-                      onClick={() => markReady(true)}
-                    >
-                      {readyPending && <LoaderCircle className="animate-spin" aria-hidden />}
-                      {spot ? "Confirm – I'm done" : "Choose table or takeaway"}
-                    </Button>
-                  </div>
-                )}
+                <SyncLine sync={sync} />
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    className="rounded-full text-muted-foreground"
+                    onClick={() => {
+                      clear();
+                      setOpen(false);
+                    }}
+                  >
+                    Clear list
+                  </Button>
+                  <Button
+                    className="ml-auto h-12 flex-1 rounded-full bg-cta text-base font-bold text-cta-foreground hover:bg-hh-orange-light"
+                    disabled={!kind || count === 0}
+                    onClick={() => setStep("details")}
+                  >
+                    {kind ? "Next – your details" : "Choose dine-in or takeaway"}
+                  </Button>
+                </div>
               </div>
             </>
           )}
@@ -327,8 +274,146 @@ export function CartBar({
   );
 }
 
-function SyncLine({ sync, hasSpot }: { sync: Sync; hasSpot: boolean }) {
-  if (!hasSpot) return null;
+function DetailsStep({
+  clientId,
+  kind,
+  count,
+  initial,
+  lines,
+  onBack,
+  onPlaced,
+}: {
+  clientId: string;
+  kind: OrderKind;
+  count: number;
+  initial: { name: string; phone: string } | null;
+  lines: { itemId: string; addOnIds: string[]; quantity: number }[];
+  onBack: () => void;
+  onPlaced: (order: { id: string; number: number }, guest: { name: string; phone: string }) => void;
+}) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? "");
+  const [note, setNote] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
+  const [pending, start] = useTransition();
+  const phoneOk = INDIAN_MOBILE.test(phone);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    start(async () => {
+      try {
+        const res = await placeOrder({
+          clientId,
+          takeaway: kind === "PARCEL",
+          name,
+          phone,
+          note: note.trim() || undefined,
+          marketingConsent: consent,
+          items: lines.map((l) => ({ itemId: l.itemId, addOnIds: l.addOnIds, quantity: l.quantity })),
+        });
+        if (res.ok) onPlaced({ id: res.id, number: res.number }, { name: name.trim(), phone });
+        else setError({ message: res.error, problems: res.problems });
+      } catch {
+        setError({ message: "Couldn't reach the café. Check your internet and try again." });
+      }
+    });
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-4 px-5 pt-6 pb-6">
+      <div className="flex items-start gap-2">
+        <Button type="button" size="icon-sm" variant="ghost" aria-label="Back to your list" onClick={onBack}>
+          <ArrowLeft />
+        </Button>
+        <div>
+          <SheetTitle className="font-heading text-2xl font-bold">Your details</SheetTitle>
+          <SheetDescription>
+            {KIND_LABEL[kind]} · {count} item{count === 1 ? "" : "s"}. We use these to manage your order and
+            call you when it&apos;s ready.
+          </SheetDescription>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="g-name">Your name</Label>
+        <Input
+          id="g-name"
+          autoComplete="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          minLength={2}
+          maxLength={60}
+          className="h-11"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="g-phone">Mobile number</Label>
+        <Input
+          id="g-phone"
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel-national"
+          maxLength={10}
+          placeholder="10-digit mobile"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+          aria-invalid={phone.length === 10 && !phoneOk}
+          required
+          className="h-11"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="g-note">Note to the kitchen (optional)</Label>
+        <Textarea
+          id="g-note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={200}
+          rows={2}
+          placeholder="Less spicy, no onion…"
+        />
+      </div>
+      <label className="flex cursor-pointer items-start gap-3 text-sm">
+        <Checkbox checked={consent} onCheckedChange={(c) => setConsent(c === true)} className="mt-0.5" />
+        <span>Send me offers on WhatsApp / SMS (optional)</span>
+      </label>
+      <p className="text-xs text-muted-foreground">
+        See our{" "}
+        <Link href="/privacy" className="underline underline-offset-2">
+          privacy note
+        </Link>{" "}
+        for how we use your details.
+      </p>
+
+      {error && (
+        <div role="alert" className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p>{error.message}</p>
+          {error.problems && (
+            <ul className="mt-1 list-disc pl-5">
+              {error.problems.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <Button
+        type="submit"
+        disabled={pending || !phoneOk || name.trim().length < 2}
+        className="h-12 w-full rounded-full bg-cta text-base font-bold text-cta-foreground hover:bg-hh-orange-light"
+      >
+        {pending && <LoaderCircle className="animate-spin" aria-hidden />}
+        Place order
+      </Button>
+    </form>
+  );
+}
+
+function SyncLine({ sync }: { sync: Sync }) {
   if (sync === "error")
     return (
       <p className="flex items-center gap-1.5 text-xs text-destructive" role="alert">
@@ -344,59 +429,24 @@ function SyncLine({ sync, hasSpot }: { sync: Sync; hasSpot: boolean }) {
   return null;
 }
 
-function SpotPicker({
-  tables,
-  spot,
-  onChange,
-  disabled,
-}: {
-  tables: TableOption[];
-  spot: GuestSpot | null;
-  onChange: (spot: GuestSpot | null) => void;
-  disabled?: boolean;
-}) {
-  const mode = spot?.kind ?? "table";
+function KindPicker({ kind, onChange }: { kind: OrderKind | null; onChange: (kind: OrderKind) => void }) {
   return (
-    <fieldset className="space-y-3" disabled={disabled}>
-      <legend className="sr-only">Where are you?</legend>
-      <div className="inline-flex rounded-full bg-muted p-1" role="radiogroup" aria-label="Where are you?">
-        {(["table", "takeaway"] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            role="radio"
-            aria-checked={mode === m}
-            onClick={() => onChange(m === "takeaway" ? { kind: "takeaway" } : null)}
-            className={cn(
-              "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-              mode === m ? "bg-background shadow-sm" : "text-muted-foreground",
-            )}
-          >
-            {m === "table" ? "At a table" : "Takeaway"}
-          </button>
-        ))}
-      </div>
-      {mode === "table" && (
-        <div className="space-y-1.5">
-          <Label htmlFor="guest-table">Your table</Label>
-          <NativeSelect
-            id="guest-table"
-            className="h-11"
-            value={spot?.kind === "table" ? spot.slug : ""}
-            onChange={(e) => {
-              const t = tables.find((x) => x.slug === e.target.value);
-              onChange(t ? { kind: "table", slug: t.slug, label: t.label } : null);
-            }}
-          >
-            <option value="">Choose your table</option>
-            {tables.map((t) => (
-              <option key={t.slug} value={t.slug}>
-                Table {t.label}
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
-      )}
-    </fieldset>
+    <div className="inline-flex rounded-full bg-muted p-1" role="radiogroup" aria-label="Dine-in or takeaway">
+      {(["DINE_IN", "PARCEL"] as const).map((k) => (
+        <button
+          key={k}
+          type="button"
+          role="radio"
+          aria-checked={kind === k}
+          onClick={() => onChange(k)}
+          className={cn(
+            "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+            kind === k ? "bg-background shadow-sm" : "text-muted-foreground",
+          )}
+        >
+          {KIND_LABEL[k]}
+        </button>
+      ))}
+    </div>
   );
 }

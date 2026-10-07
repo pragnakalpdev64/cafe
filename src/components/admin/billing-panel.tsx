@@ -13,16 +13,15 @@ import { toRupees } from "@/lib/money";
 type ToBill = {
   key: string;
   title: string;
-  target: { tableId: string } | { orderId: string };
   orders: LiveOrder[];
-  /** rounds at this table that are not served yet – the bill waits for them */
+  /** this guest's dine-in orders that are not served yet – the bill waits for them */
   waitingOn: LiveOrder[];
 };
 
-/** Served dine-in rounds grouped by table (one bill per visit); takeaway billed per order. */
+/** Served dine-in orders grouped by guest (one bill per visit); takeaway billed per order. */
 function toBill(orders: LiveOrder[]): ToBill[] {
   const out: ToBill[] = [];
-  const byTable = new Map<string, LiveOrder[]>();
+  const byGuest = new Map<string, LiveOrder[]>();
   for (const o of orders) {
     if (o.billId || o.status === "CANCELLED" || o.status === "PAID") continue;
     if (o.type === "PARCEL") {
@@ -30,23 +29,22 @@ function toBill(orders: LiveOrder[]): ToBill[] {
         out.push({
           key: o.id,
           title: `Takeaway #${o.number}`,
-          target: { orderId: o.id },
           orders: [o],
           waitingOn: [],
         });
       }
-    } else if (o.tableId) {
-      byTable.set(o.tableId, [...(byTable.get(o.tableId) ?? []), o]);
+    } else {
+      const key = o.customerId ?? o.id;
+      byGuest.set(key, [...(byGuest.get(key) ?? []), o]);
     }
   }
-  for (const [tableId, unsorted] of byTable) {
+  for (const [key, unsorted] of byGuest) {
     const list = [...unsorted].sort((a, b) => a.number - b.number);
     const served = list.filter((o) => o.status === "SERVED");
     if (served.length === 0) continue;
     out.push({
-      key: tableId,
-      title: `Table ${list[0].table}`,
-      target: { tableId },
+      key,
+      title: `Dine-in · ${list[0].customerName}`,
       orders: served,
       waitingOn: list.filter((o) => o.status !== "SERVED"),
     });
@@ -120,7 +118,7 @@ function ToBillCard({ entry, onChanged }: { entry: ToBill; onChanged: () => void
         disabled={pending || entry.waitingOn.length > 0}
         onClick={() =>
           start(async () => {
-            const res = await generateBill(entry.target);
+            const res = await generateBill(entry.orders.map((o) => o.id));
             if (res.ok) {
               toast.success(`Bill #${res.number} ready`);
               onChanged();
@@ -161,7 +159,7 @@ function BillCard({ bill, onChanged }: { bill: LiveBill; onChanged: () => void }
       <div className="flex items-start gap-2">
         <div className="flex-1">
           <p className="text-lg font-bold">
-            Bill #{bill.number} · {bill.table ? `Table ${bill.table}` : "Takeaway"}
+            Bill #{bill.number} · {bill.type === "PARCEL" ? "Takeaway" : "Dine-in"}
           </p>
           <p className="text-xs text-muted-foreground">
             {bill.customerName} · orders {bill.orderNumbers.map((n) => `#${n}`).join(", ")}

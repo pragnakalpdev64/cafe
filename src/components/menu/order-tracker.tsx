@@ -10,7 +10,7 @@ export function guestStatusLabel(o: Pick<GuestOrder, "status" | "type">) {
     case "NEW":
       return "Waiting for staff";
     case "ACCEPTED":
-      return "Confirmed";
+      return "Accepted";
     case "PREPARING":
       return "In the kitchen";
     case "READY":
@@ -28,7 +28,8 @@ function steps(o: GuestOrder): Step[] {
   const flow =
     o.type === "PARCEL" ? ["ACCEPTED", "PREPARING", "READY", "SERVED"] : ["ACCEPTED", "PREPARING", "SERVED"];
   const labels: Record<string, string> = {
-    ACCEPTED: "Confirmed",
+    // the first step waits for staff to accept the order the guest placed
+    ACCEPTED: o.status === "NEW" ? "Waiting for staff" : "Accepted",
     PREPARING: "In the kitchen",
     READY: "Ready to collect",
     SERVED: o.type === "PARCEL" ? "Picked up" : "Served",
@@ -54,7 +55,7 @@ export function OrderTracker({ orders }: { orders: GuestOrder[] }) {
             <p className="flex-1 text-lg font-bold">
               Order #{o.number}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                {o.table ? `Table ${o.table}` : "Takeaway"}
+                {o.type === "PARCEL" ? "Takeaway" : "Dine-in"}
               </span>
             </p>
             {o.status === "PREPARING" && <ChefHat className="size-5 text-brand-text" aria-hidden />}

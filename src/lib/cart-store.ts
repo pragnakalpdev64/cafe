@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 // The guest's list of picked items, mirrored live to the dashboard. Customers never
-// see a total; the cashier confirms the order (and its prices) at the table.
+// see a total; prices are set on the server when the guest places the order.
 
 export type CartLine = {
   key: string;
@@ -15,8 +15,10 @@ export type CartLine = {
   quantity: number;
 };
 
-/** Where the order goes: a table (from its QR or picked on /menu) or takeaway. */
-export type GuestSpot = { kind: "table"; slug: string; label: string } | { kind: "takeaway" };
+export type OrderKind = "DINE_IN" | "PARCEL";
+
+/** Remembered on this device so a returning guest doesn't type them again. */
+export type GuestDetails = { name: string; phone: string };
 
 export type PlacedOrder = { id: string; number: number; placedAt: number };
 
@@ -24,14 +26,11 @@ type CartState = {
   /** random id for this device: its live selection on the dashboard */
   clientId: string;
   lines: CartLine[];
-  spot: GuestSpot | null;
-  /** guest tapped Confirm ("I'm done") and is waiting for the cashier */
-  ready: boolean;
-  /** 4-digit code a takeaway guest shows at the counter */
-  code: number | null;
+  kind: OrderKind | null;
+  guest: GuestDetails | null;
   /** most recent first, for the order status page */
   orders: PlacedOrder[];
-  /** show "Order #N confirmed" until the guest taps Done or starts a new list */
+  /** show "Order #N placed" until the guest taps Done or starts a new list */
   showConfirmed: boolean;
   /** last change, used to drop yesterday's list */
   touchedAt: number;
@@ -39,11 +38,9 @@ type CartState = {
   setQuantity: (key: string, quantity: number) => void;
   /** change the add-ons on a line already in the list (merges with an identical line) */
   setAddOns: (key: string, addOnIds: string[], addOnNames: string[]) => void;
-  setSpot: (spot: GuestSpot | null) => void;
-  setReady: (ready: boolean) => void;
-  setCode: (code: number) => void;
-  /** the cashier confirmed this device's list as an order */
-  orderConfirmed: (order: Omit<PlacedOrder, "placedAt">) => void;
+  setKind: (kind: OrderKind) => void;
+  /** this device's list became an order */
+  orderPlaced: (order: Omit<PlacedOrder, "placedAt">, guest?: GuestDetails) => void;
   dismissConfirmed: () => void;
   clear: () => void;
 };
@@ -63,9 +60,8 @@ export const useCart = create<CartState>()(
     (set) => ({
       clientId: newClientId(),
       lines: [],
-      spot: null,
-      ready: false,
-      code: null,
+      kind: null,
+      guest: null,
       orders: [],
       showConfirmed: false,
       touchedAt: Date.now(),
@@ -104,35 +100,32 @@ export const useCart = create<CartState>()(
             : state.lines.map((l) => (l.key === key ? { ...l, key: nextKey, addOnIds, addOnNames } : l));
           return { lines, touchedAt: Date.now() };
         }),
-      setSpot: (spot) => set({ spot, touchedAt: Date.now() }),
-      setReady: (ready) => set({ ready, touchedAt: Date.now() }),
-      setCode: (code) => set({ code }),
-      orderConfirmed: (order) =>
+      setKind: (kind) => set({ kind, touchedAt: Date.now() }),
+      orderPlaced: (order, guest) =>
         set((state) =>
           state.orders.some((o) => o.id === order.id)
-            ? {}
+            ? { guest: guest ?? state.guest } // the live event may have recorded the order first
             : {
                 lines: [],
-                ready: false,
+                guest: guest ?? state.guest,
                 showConfirmed: true,
                 orders: [{ ...order, placedAt: Date.now() }, ...state.orders].slice(0, 10),
                 touchedAt: Date.now(),
               },
         ),
       dismissConfirmed: () => set({ showConfirmed: false }),
-      clear: () => set({ lines: [], ready: false, touchedAt: Date.now() }),
+      clear: () => set({ lines: [], touchedAt: Date.now() }),
     }),
     {
       name: "hh-cart",
       // bump when the stored shape or menu ids change so stale lists are dropped
-      version: 4,
+      version: 5,
       migrate: () =>
         ({
           clientId: newClientId(),
           lines: [],
-          spot: null,
-          ready: false,
-          code: null,
+          kind: null,
+          guest: null,
           orders: [],
           showConfirmed: false,
           touchedAt: Date.now(),

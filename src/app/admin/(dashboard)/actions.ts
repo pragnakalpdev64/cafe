@@ -16,8 +16,6 @@ import {
 import { billFromOrders } from "@/lib/billing";
 import { billTotals, priceLines } from "@/lib/pricing";
 import { publish } from "@/lib/realtime";
-import { type ConfirmSelectionInput, ConfirmSelectionSchema } from "@/lib/validators/confirm-order";
-import { INDIAN_MOBILE } from "@/lib/validators/phone";
 import { SelectionLinesSchema } from "@/lib/validators/selection";
 
 type Fail = { ok: false; error: string; problems?: string[] };
@@ -31,89 +29,6 @@ async function staff(): Promise<CurrentUser | Fail> {
   }
 }
 
-/**
- * The cashier confirms a guest's selection at the table, adding the guest's name and phone.
- * Prices come from the menu now; the order starts as ACCEPTED (confirmed with the guest).
- */
-export async function confirmSelection(
-  input: ConfirmSelectionInput,
-): Promise<{ ok: true; number: number } | Fail> {
-  const me = await staff();
-  if ("ok" in me) return me;
-  const parsed = ConfirmSelectionSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
-  const { selectionId, name, phone, note, marketingConsent, items } = parsed.data;
-
-  const selection = await db.selection.findUnique({ where: { id: selectionId } });
-  if (!selection) return { ok: false, error: "This list is gone – the guest may have cleared it." };
-  if (selection.status === "CONFIRMED") return { ok: false, error: "This list was already confirmed." };
-
-  const priced = priceLines(items, await loadMenuPrices(items.map((i) => i.itemId)));
-  if (!priced.ok) return { ok: false, error: "Fix these before confirming:", problems: priced.problems };
-  const totals = billTotals(priced.subtotalPaise, (await getCafeDetails()).taxBasisPoints);
-
-  const order = await db.$transaction(async (tx) => {
-    const now = new Date();
-    const customer = await tx.customer.upsert({
-      where: { phone },
-      create: { name, phone, marketingConsent, consentAt: marketingConsent ? now : null },
-      // a later order never withdraws consent on its own – that happens on request
-      update: { name, lastVisitAt: now, ...(marketingConsent && { marketingConsent: true, consentAt: now }) },
-      select: { id: true },
-    });
-    const created = await tx.order.create({
-      data: {
-        type: selection.takeaway ? "PARCEL" : "DINE_IN",
-        status: "ACCEPTED",
-        tableId: selection.tableId,
-        customerId: customer.id,
-        customerName: name,
-        customerPhone: phone,
-        note: note || null,
-        subtotalPaise: totals.subtotalPaise,
-        taxPaise: totals.taxPaise,
-        totalPaise: totals.totalPaise,
-        createdById: me.id,
-        items: {
-          create: priced.lines.map((l) => ({
-            menuItemId: l.menuItemId,
-            itemName: l.itemName,
-            unitPricePaise: l.unitPricePaise,
-            quantity: l.quantity,
-            addOns: l.addOns,
-            lineTotalPaise: l.lineTotalPaise,
-          })),
-        },
-        statusLogs: {
-          create: [
-            {
-              toStatus: "NEW",
-              note: "Selected by the guest on the QR menu",
-              createdAt: selection.readyAt ?? selection.createdAt,
-            },
-            {
-              fromStatus: "NEW",
-              toStatus: "ACCEPTED",
-              changedById: me.id,
-              note: `Confirmed with the guest by ${me.name}`,
-            },
-          ],
-        },
-      },
-      select: { id: true, number: true },
-    });
-    // keep the row briefly (CONFIRMED) so the guest's phone can catch up if it was offline
-    await tx.selection.update({
-      where: { id: selectionId },
-      data: { status: "CONFIRMED", orderId: created.id },
-    });
-    return created;
-  });
-
-  await publish({ type: "order", orderId: order.id, number: order.number, status: "ACCEPTED", selectionId });
-  return { ok: true, number: order.number };
-}
-
 /** Guest left without ordering – take their list off the board. */
 export async function removeSelection(selectionId: string): Promise<{ ok: true } | Fail> {
   const me = await staff();
@@ -125,24 +40,11 @@ export async function removeSelection(selectionId: string): Promise<{ ok: true }
   return { ok: true };
 }
 
-/** Fills in a returning customer's name for the cashier. */
-export async function lookupCustomer(phone: string): Promise<{ name?: string; visits?: number }> {
-  const me = await staff();
-  if ("ok" in me) return {};
-  const digits = phone.replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "");
-  if (!INDIAN_MOBILE.test(digits)) return {};
-  const customer = await db.customer.findUnique({
-    where: { phone: digits },
-    select: { name: true, orderCount: true },
-  });
-  return customer ? { name: customer.name, visits: customer.orderCount } : {};
-}
-
-/* --------------------------- after confirmation --------------------------- */
+/* ---------------------------- after ordering ---------------------------- */
 
 const OrderId = z.string().min(1).max(40);
 
-/** Change a confirmed order's items before it goes to the kitchen. Re-priced from the menu. */
+/** Change an order's items before it goes to the kitchen. Re-priced from the menu. */
 export async function updateOrderItems(
   orderId: string,
   items: z.input<typeof SelectionLinesSchema>,
@@ -289,37 +191,30 @@ export async function cancelOrder(orderId: string, reason: string): Promise<{ ok
 
 /* ------------------------------- billing ------------------------------- */
 
-const BillTarget = z.union([
-  z.object({ tableId: z.string().min(1).max(40) }),
-  z.object({ orderId: z.string().min(1).max(40) }),
-]);
+const BillOrderIds = z.array(OrderId).min(1).max(20);
 
 /**
- * One bill per table visit: all served, unbilled rounds for the table.
+ * Dine-in: one bill per visit – the guest's served, unbilled orders (same customer).
  * Takeaway: one bill per order (once it's ready to collect or picked up).
  */
 export async function generateBill(
-  target: z.input<typeof BillTarget>,
+  orderIds: string[],
 ): Promise<{ ok: true; billId: string; number: number } | Fail> {
   const me = await staff();
   if ("ok" in me) return me;
-  const parsed = BillTarget.safeParse(target);
+  const parsed = BillOrderIds.safeParse(orderIds);
   if (!parsed.success) return { ok: false, error: "Nothing to bill." };
 
-  const orders =
-    "tableId" in parsed.data
-      ? await db.order.findMany({
-          where: {
-            tableId: parsed.data.tableId,
-            type: "DINE_IN",
-            billId: null,
-            status: { notIn: ["CANCELLED", "PAID"] },
-          },
-          orderBy: { createdAt: "asc" },
-        })
-      : await db.order.findMany({ where: { id: parsed.data.orderId, type: "PARCEL", billId: null } });
-
-  if (orders.length === 0) return { ok: false, error: "There's nothing left to bill here." };
+  const orders = await db.order.findMany({
+    where: { id: { in: parsed.data }, billId: null, status: { notIn: ["CANCELLED", "PAID"] } },
+    orderBy: { createdAt: "asc" },
+  });
+  if (orders.length !== parsed.data.length)
+    return { ok: false, error: "Some of these orders were just billed or changed – refresh the screen." };
+  const kinds = new Set(orders.map((o) => o.type));
+  const guests = new Set(orders.map((o) => o.customerId));
+  if (kinds.size > 1 || guests.size > 1 || (orders[0].type === "PARCEL" && orders.length > 1))
+    return { ok: false, error: "These orders can't go on one bill." };
   const unfinished = orders.filter((o) =>
     o.type === "PARCEL" ? !["READY", "SERVED"].includes(o.status) : o.status !== "SERVED",
   );
@@ -337,7 +232,6 @@ export async function generateBill(
       const created = await tx.bill.create({
         data: {
           type: last.type,
-          tableId: last.tableId,
           customerName: last.customerName,
           customerPhone: last.customerPhone,
           subtotalPaise: totals.subtotalPaise,
@@ -370,7 +264,7 @@ const PaymentSchema = z.object({
 
 /**
  * Payment taken at the counter: orders become PAID (a takeaway not yet picked up stays READY),
- * the table frees up, customer stats update.
+ * customer stats update.
  */
 export async function markBillPaid(
   billId: string,

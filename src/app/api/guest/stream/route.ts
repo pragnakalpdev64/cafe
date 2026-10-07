@@ -8,7 +8,7 @@ const OrderIds = z.array(z.string().regex(/^[a-z0-9]{20,32}$/)).max(10);
 
 /**
  * Live channel for one guest's phone. Knowing the device's random id (and its order ids) is the key.
- * Sends `confirmed` when the cashier turns the guest's list into an order, and `order`
+ * Sends `confirmed` when the guest's list becomes an order (e.g. placed from another tab), and `order`
  * whenever one of the guest's orders changes status.
  */
 export async function GET(req: Request) {
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
   return sseResponse(req.signal, {
     async onOpen(send) {
-      // catch up if the order was confirmed while this phone was offline
+      // catch up if the order was placed while this phone was offline
       const sel = await db.selection.findUnique({
         where: { id: selectionId },
         select: { status: true, orderId: true },

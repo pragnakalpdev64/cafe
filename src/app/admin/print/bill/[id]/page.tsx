@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { formatINR } from "@/lib/format";
 import { toRupees } from "@/lib/money";
 import { maskPhone } from "@/lib/phone-mask";
-import { PrintButton } from "../../tables/print-button";
+import { PrintButton } from "../../print-button";
 
 export const metadata: Metadata = { title: "Bill", robots: { index: false } };
 
@@ -22,7 +22,6 @@ export default async function BillPage({ params }: PageProps<"/admin/print/bill/
     db.bill.findUnique({
       where: { id },
       include: {
-        table: { select: { label: true } },
         orders: { orderBy: { number: "asc" }, select: { number: true, items: true } },
         createdBy: { select: { name: true } },
       },
@@ -63,8 +62,8 @@ export default async function BillPage({ params }: PageProps<"/admin/print/bill/
           <dd className="text-right font-bold">#{bill.number}</dd>
           <dt>Date</dt>
           <dd className="text-right">{when}</dd>
-          <dt>{bill.table ? "Table" : "Order"}</dt>
-          <dd className="text-right">{bill.table ? bill.table.label : "Takeaway"}</dd>
+          <dt>Order</dt>
+          <dd className="text-right">{bill.type === "PARCEL" ? "Takeaway" : "Dine-in"}</dd>
           <dt>Guest</dt>
           <dd className="text-right">
             {bill.customerName}

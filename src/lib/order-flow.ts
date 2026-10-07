@@ -1,15 +1,16 @@
 import type { OrderStatus, OrderType } from "@/generated/prisma/enums";
 
-// The order lifecycle after the cashier confirms (status ACCEPTED). Pure, so it's unit-tested.
-//   dine-in:  ACCEPTED → PREPARING (in kitchen) → SERVED
-//   takeaway: ACCEPTED → PREPARING → READY (to collect) → SERVED (picked up)
+// The order lifecycle after the guest places it (status NEW). Pure, so it's unit-tested.
+//   dine-in:  NEW → ACCEPTED (staff checked it) → PREPARING (in kitchen) → SERVED
+//   takeaway: NEW → ACCEPTED → PREPARING → READY (to collect) → SERVED (picked up)
 // Cancel is allowed until the food is served (or the bill is paid). PAID is set by the bill –
 // except a takeaway paid while still waiting at the counter: it stays READY and "Picked up" finishes it as PAID.
 
-export type OrderAction = "toKitchen" | "served" | "readyToCollect" | "pickedUp";
+export type OrderAction = "accept" | "toKitchen" | "served" | "readyToCollect" | "pickedUp";
 
 const NEXT: Record<OrderAction, { from: OrderStatus[]; to: OrderStatus; types: OrderType[] }> = {
-  toKitchen: { from: ["NEW", "ACCEPTED"], to: "PREPARING", types: ["DINE_IN", "PARCEL"] },
+  accept: { from: ["NEW"], to: "ACCEPTED", types: ["DINE_IN", "PARCEL"] },
+  toKitchen: { from: ["ACCEPTED"], to: "PREPARING", types: ["DINE_IN", "PARCEL"] },
   served: { from: ["PREPARING"], to: "SERVED", types: ["DINE_IN"] },
   readyToCollect: { from: ["PREPARING"], to: "READY", types: ["PARCEL"] },
   pickedUp: { from: ["READY"], to: "SERVED", types: ["PARCEL"] },
@@ -36,6 +37,7 @@ export const statusOnPayment = (status: OrderStatus): OrderStatus => (status ===
 export const canEditItems = (status: OrderStatus) => status === "NEW" || status === "ACCEPTED";
 
 export const ACTION_LABEL: Record<OrderAction, string> = {
+  accept: "Accept",
   toKitchen: "Send to kitchen",
   served: "Served",
   readyToCollect: "Ready to collect",

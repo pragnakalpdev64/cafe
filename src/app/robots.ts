@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      // staff pages, APIs and per-table QR pages shouldn't appear in search
+      // staff pages, APIs and old per-table QR links shouldn't appear in search
       disallow: ["/admin", "/api/", "/t/"],
     },
     sitemap: new URL("/sitemap.xml", SITE_URL).toString(),

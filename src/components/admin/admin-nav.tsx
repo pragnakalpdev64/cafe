@@ -27,7 +27,7 @@ const ICONS = {
   orders: ClipboardList,
   menu: BookOpen,
   history: History,
-  tables: QrCode,
+  qr: QrCode,
   customers: Users,
   reports: BarChart3,
   settings: Settings,
@@ -62,7 +62,13 @@ function NavLinks({ user, onNavigate }: { user: CurrentUser; onNavigate?: () => 
             {body}
           </span>
         ) : (
-          <Link key={item.href} href={item.href} className={cls} onClick={onNavigate} aria-current={active ? "page" : undefined}>
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cls}
+            onClick={onNavigate}
+            aria-current={active ? "page" : undefined}
+          >
             {body}
           </Link>
         );
@@ -115,14 +121,22 @@ export function AdminMobileBar({ user }: { user: CurrentUser }) {
   const [open, setOpen] = useState(false);
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/90 px-3 backdrop-blur lg:hidden">
-      <Button variant="ghost" size="icon" aria-label="Open menu" onClick={() => setOpen(true)} className="rounded-full">
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Open menu"
+        onClick={() => setOpen(true)}
+        className="rounded-full"
+      >
         <MenuIcon className="size-5" />
       </Button>
       <LogoIcon className="h-7" alt="" />
       <span className="font-heading font-bold">Dashboard</span>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-72 gap-6 border-0 bg-sidebar p-4 text-sidebar-foreground">
-          <SheetTitle className="px-2 pt-1 font-heading text-lg text-sidebar-foreground">Healthy Hunger</SheetTitle>
+          <SheetTitle className="px-2 pt-1 font-heading text-lg text-sidebar-foreground">
+            Healthy Hunger
+          </SheetTitle>
           <div className="flex-1 overflow-y-auto">
             <NavLinks user={user} onNavigate={() => setOpen(false)} />
           </div>

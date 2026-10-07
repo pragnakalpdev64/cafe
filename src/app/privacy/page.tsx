@@ -46,11 +46,11 @@ export default async function PrivacyPage() {
           <h2>What we collect</h2>
           <ul>
             <li>
-              <strong>Your name and mobile number</strong>, when you confirm an order.
+              <strong>Your name and mobile number</strong>, when you place an order.
             </li>
             <li>
-              <strong>Your order:</strong> the items, your table (or takeaway), any note to the kitchen, and
-              the bill.
+              <strong>Your order:</strong> the items, dine-in or takeaway, any note to the kitchen, and the
+              bill.
             </li>
             <li>
               <strong>Your offers choice</strong> – only if you tick the box, with the date you ticked it.
@@ -69,9 +69,9 @@ export default async function PrivacyPage() {
         <section>
           <h2>Why we use it</h2>
           <ul>
-            <li>To prepare your order, bring it to you and make your bill.</li>
+            <li>To prepare your order, call you when it&apos;s ready and make your bill.</li>
             <li>To contact you about that order if needed.</li>
-            <li>To fill in your name next time you order with the same number.</li>
+            <li>To recognise you when you come back (number of visits).</li>
             <li>
               To send offers on WhatsApp or SMS – <strong>only</strong> if you ticked the box.
             </li>
@@ -82,7 +82,7 @@ export default async function PrivacyPage() {
           <h2>Who can see it</h2>
           <ul>
             <li>
-              Café staff see your order and table. They see your mobile number partly hidden (for example
+              Café staff see your order and your name. They see your mobile number partly hidden (for example
               98xxxxxx21).
             </li>
             <li>The owner can see the full number and your past visits.</li>

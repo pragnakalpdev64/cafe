@@ -1,6 +1,6 @@
 import { billTotals } from "./pricing";
 
-// Bills combine every round of a table visit. Pure, so it's unit-tested.
+// Bills combine every round of a guest's visit. Pure, so it's unit-tested.
 
 export type BillSourceItem = {
   itemName: string;

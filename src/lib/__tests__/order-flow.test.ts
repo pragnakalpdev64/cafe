@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import { availableActions, canCancel, canEditItems, nextStatus, statusOnPayment } from "@/lib/order-flow";
 
 describe("order flow", () => {
-  it("takes a dine-in order from confirmed to served", () => {
+  it("takes a dine-in order from placed to served", () => {
+    expect(nextStatus("accept", "NEW", "DINE_IN")).toBe("ACCEPTED");
+    expect(nextStatus("toKitchen", "NEW", "DINE_IN")).toBeNull();
     expect(nextStatus("toKitchen", "ACCEPTED", "DINE_IN")).toBe("PREPARING");
     expect(nextStatus("served", "PREPARING", "DINE_IN")).toBe("SERVED");
     expect(nextStatus("readyToCollect", "PREPARING", "DINE_IN")).toBeNull();
@@ -22,6 +24,7 @@ describe("order flow", () => {
   });
 
   it("lists the buttons for each status", () => {
+    expect(availableActions("NEW", "PARCEL")).toEqual(["accept"]);
     expect(availableActions("ACCEPTED", "DINE_IN")).toEqual(["toKitchen"]);
     expect(availableActions("PREPARING", "PARCEL")).toEqual(["readyToCollect"]);
     expect(availableActions("SERVED", "DINE_IN")).toEqual([]);

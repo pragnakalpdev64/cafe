@@ -12,7 +12,7 @@ pnpm install
 cp .env.example .env      # then fill in the values (see below)
 pnpm db:setup             # creates the Postgres role + database from DATABASE_URL (asks for sudo)
 pnpm db:migrate           # creates the tables
-pnpm db:seed              # menu, add-ons, café details, 6 tables, first owner login
+pnpm db:seed              # menu, add-ons, café details, first owner login
 pnpm dev                  # http://localhost:3000 – dashboard at /admin
 ```
 

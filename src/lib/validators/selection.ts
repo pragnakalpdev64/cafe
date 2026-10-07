@@ -11,14 +11,11 @@ export const SelectionLinesSchema = z
   )
   .max(40);
 
-export const GuestSelectionSchema = z
-  .object({
-    clientId: z.uuid(),
-    tableSlug: z.string().trim().min(1).max(40).optional(),
-    takeaway: z.boolean().optional(),
-    items: SelectionLinesSchema,
-  })
-  .refine((v) => !!v.tableSlug !== !!v.takeaway, "Choose your table or takeaway");
+export const GuestSelectionSchema = z.object({
+  clientId: z.uuid(),
+  takeaway: z.boolean(),
+  items: SelectionLinesSchema,
+});
 
 export type GuestSelectionInput = z.input<typeof GuestSelectionSchema>;
 

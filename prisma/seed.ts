@@ -58,15 +58,6 @@ async function main() {
     });
   }
 
-  // Placeholder tables until the owner confirms how many there are.
-  for (let n = 1; n <= 6; n++) {
-    await db.cafeTable.upsert({
-      where: { label: `T${n}` },
-      update: {},
-      create: { label: `T${n}`, seats: 4, qrSlug: `t${n}`, sortOrder: n },
-    });
-  }
-
   await db.cafeSettings.upsert({
     where: { id: 1 },
     update: {},

@@ -45,7 +45,7 @@ export default async function OrderHistoryPage({ searchParams }: PageProps<"/adm
   const end = new Date(`${to}T00:00:00`);
   end.setDate(end.getDate() + 1);
 
-  // one search box: "12" or "#12" = order or bill number, 10 digits = phone, otherwise table or name
+  // one search box: "12" or "#12" = order or bill number, 10 digits = phone, otherwise name
   const q = f.q?.replace(/^#/, "");
   const search: Prisma.OrderWhereInput | undefined = !q
     ? undefined
@@ -53,12 +53,7 @@ export default async function OrderHistoryPage({ searchParams }: PageProps<"/adm
       ? { customerPhone: q }
       : /^\d{1,7}$/.test(q)
         ? { OR: [{ number: Number(q) }, { bill: { number: Number(q) } }] }
-        : {
-            OR: [
-              { table: { label: { equals: q.replace(/^table\s*/i, ""), mode: "insensitive" } } },
-              { customerName: { contains: q, mode: "insensitive" } },
-            ],
-          };
+        : { customerName: { contains: q, mode: "insensitive" } };
 
   const where: Prisma.OrderWhereInput = {
     // a number or phone search looks across all dates
@@ -77,7 +72,6 @@ export default async function OrderHistoryPage({ searchParams }: PageProps<"/adm
       take: PAGE_SIZE,
       include: {
         items: true,
-        table: { select: { label: true } },
         bill: { select: { id: true, number: true, paymentMethod: true, paidAt: true, totalPaise: true } },
         statusLogs: { orderBy: { createdAt: "asc" }, include: { changedBy: { select: { name: true } } } },
       },
@@ -122,7 +116,7 @@ export default async function OrderHistoryPage({ searchParams }: PageProps<"/adm
             <Input
               name="q"
               defaultValue={f.q}
-              placeholder="#12, phone, T3 or name"
+              placeholder="#12, phone or name"
               className="h-10 pl-8 text-foreground"
             />
           </span>
@@ -174,7 +168,7 @@ export default async function OrderHistoryPage({ searchParams }: PageProps<"/adm
           <li key={o.id} className="rounded-3xl border border-border bg-card p-4">
             <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
               <p className="text-lg font-bold">
-                #{o.number} · {o.table ? `Table ${o.table.label}` : "Takeaway"}
+                #{o.number} · {o.type === "PARCEL" ? "Takeaway" : "Dine-in"}
               </p>
               <OrderStatusBadge status={o.status} className="mt-1" />
               <p className="ml-auto tabular text-lg font-semibold">{formatINR(toRupees(o.totalPaise))}</p>

@@ -1,10 +1,14 @@
 "use server";
 
 import { z } from "zod";
+import { getCafeDetails } from "@/lib/data/menu";
+import { loadMenuPrices } from "@/lib/data/menu-prices";
 import { db } from "@/lib/db";
+import { billTotals, priceLines } from "@/lib/pricing";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { publish } from "@/lib/realtime";
 import { clientIp } from "@/lib/request-ip";
+import { type PlaceOrderInput, PlaceOrderSchema } from "@/lib/validators/place-order";
 import {
   type GuestSelectionInput,
   GuestSelectionSchema,
@@ -23,7 +27,7 @@ export type SyncResult = { ok: true; code: number } | { ok: false; error: string
 export async function syncSelection(input: GuestSelectionInput): Promise<SyncResult> {
   const parsed = GuestSelectionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
-  const { clientId, tableSlug, items } = parsed.data;
+  const { clientId, takeaway, items } = parsed.data;
 
   if (!(await consumeRateLimit(`selection:${await clientIp()}`, 400, 10 * 60))) {
     return { ok: false, error: "Too many updates. Please wait a minute." };
@@ -40,11 +44,6 @@ export async function syncSelection(input: GuestSelectionInput): Promise<SyncRes
     }
     return { ok: true, code: existing?.code ?? 0 };
   }
-
-  const table = tableSlug
-    ? await db.cafeTable.findFirst({ where: { qrSlug: tableSlug, active: true }, select: { id: true } })
-    : null;
-  if (tableSlug && !table) return { ok: false, error: "That table isn't available. Please ask staff." };
 
   const menuItems = await db.menuItem.findMany({
     where: { id: { in: items.map((i) => i.itemId) }, visible: true, category: { visible: true } },
@@ -64,33 +63,94 @@ export async function syncSelection(input: GuestSelectionInput): Promise<SyncRes
     });
   }
 
-  const where = { tableId: table?.id ?? null, takeaway: !table };
-  // a new list after a confirmed order starts a fresh round
+  // a new list after a placed order starts a fresh round
   const fresh = !existing || existing.status === "CONFIRMED";
   const row = await db.selection.upsert({
     where: { id: clientId },
-    create: { id: clientId, ...where, code: randomCode(), items: lines },
-    update: { ...where, items: lines, ...(fresh && { status: "SELECTING", readyAt: null, orderId: null }) },
+    create: { id: clientId, takeaway, code: randomCode(), items: lines },
+    update: { takeaway, items: lines, ...(fresh && { status: "SELECTING", readyAt: null, orderId: null }) },
     select: { code: true },
   });
   await publish({ type: "selection", selectionId: clientId });
   return { ok: true, code: row.code };
 }
 
-/** Guest tapped Confirm ("I'm done") – or changed their mind. Staff are alerted on READY. */
-export async function setSelectionReady(
-  clientId: string,
-  ready: boolean,
-): Promise<{ ok: boolean; error?: string }> {
-  const id = z.uuid().safeParse(clientId);
-  if (!id.success) return { ok: false, error: "Something went wrong. Please refresh the page." };
-  const updated = await db.selection.updateMany({
-    where: { id: id.data, status: { not: "CONFIRMED" } },
-    data: ready ? { status: "READY", readyAt: new Date() } : { status: "SELECTING", readyAt: null },
+export type PlaceOrderResult =
+  { ok: true; id: string; number: number } | { ok: false; error: string; problems?: string[] };
+
+/**
+ * The guest places their own order with their name and phone. Prices come from the menu now;
+ * the order starts as NEW and staff accept it before it goes to the kitchen.
+ */
+export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResult> {
+  const parsed = PlaceOrderSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const { clientId, takeaway, name, phone, note, marketingConsent, items } = parsed.data;
+
+  const cafe = await getCafeDetails();
+  if (!cafe.orderingEnabled) return { ok: false, error: "Ordering is paused right now. Please ask staff." };
+  // guard rails against fake orders: per device/network and per phone number
+  if (
+    !(await consumeRateLimit(`order-ip:${await clientIp()}`, 10, 60 * 60)) ||
+    !(await consumeRateLimit(`order-phone:${phone}`, 5, 60 * 60))
+  ) {
+    return { ok: false, error: "Too many orders in a short time. Please ask staff." };
+  }
+
+  const priced = priceLines(items, await loadMenuPrices(items.map((i) => i.itemId)));
+  if (!priced.ok) return { ok: false, error: "Please update your list:", problems: priced.problems };
+  const totals = billTotals(priced.subtotalPaise, cafe.taxBasisPoints);
+
+  const order = await db.$transaction(async (tx) => {
+    const now = new Date();
+    const customer = await tx.customer.upsert({
+      where: { phone },
+      create: { name, phone, marketingConsent, consentAt: marketingConsent ? now : null },
+      // a later order never withdraws consent on its own – that happens on request
+      update: { name, lastVisitAt: now, ...(marketingConsent && { marketingConsent: true, consentAt: now }) },
+      select: { id: true },
+    });
+    const created = await tx.order.create({
+      data: {
+        type: takeaway ? "PARCEL" : "DINE_IN",
+        status: "NEW",
+        customerId: customer.id,
+        customerName: name,
+        customerPhone: phone,
+        note: note || null,
+        subtotalPaise: totals.subtotalPaise,
+        taxPaise: totals.taxPaise,
+        totalPaise: totals.totalPaise,
+        items: {
+          create: priced.lines.map((l) => ({
+            menuItemId: l.menuItemId,
+            itemName: l.itemName,
+            unitPricePaise: l.unitPricePaise,
+            quantity: l.quantity,
+            addOns: l.addOns,
+            lineTotalPaise: l.lineTotalPaise,
+          })),
+        },
+        statusLogs: { create: { toStatus: "NEW", note: "Placed by the guest on the QR menu" } },
+      },
+      select: { id: true, number: true },
+    });
+    // the live list becomes this order (kept briefly so the phone can catch up if it goes offline)
+    await tx.selection.updateMany({
+      where: { id: clientId },
+      data: { status: "CONFIRMED", orderId: created.id, readyAt: now },
+    });
+    return created;
   });
-  if (updated.count === 0) return { ok: false, error: "Your list wasn't found. Add an item and try again." };
-  await publish({ type: "selection", selectionId: id.data });
-  return { ok: true };
+
+  await publish({
+    type: "order",
+    orderId: order.id,
+    number: order.number,
+    status: "NEW",
+    selectionId: clientId,
+  });
+  return { ok: true, id: order.id, number: order.number };
 }
 
 function randomCode() {
@@ -102,7 +162,6 @@ export type GuestOrder = {
   number: number;
   type: "DINE_IN" | "PARCEL";
   status: "NEW" | "ACCEPTED" | "PREPARING" | "READY" | "SERVED" | "PAID" | "CANCELLED";
-  table: string | null;
   cancelReason: string | null;
   items: { name: string; quantity: number; addOns: string[] }[];
 };
@@ -122,7 +181,6 @@ export async function getGuestOrders(ids: string[]): Promise<GuestOrder[]> {
       type: true,
       status: true,
       cancelReason: true,
-      table: { select: { label: true } },
       items: { select: { itemName: true, quantity: true, addOns: true } },
     },
   });
@@ -131,7 +189,6 @@ export async function getGuestOrders(ids: string[]): Promise<GuestOrder[]> {
     number: o.number,
     type: o.type,
     status: o.status,
-    table: o.table?.label ?? null,
     cancelReason: o.cancelReason,
     items: o.items.map((i) => ({
       name: i.itemName,

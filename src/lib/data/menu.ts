@@ -7,7 +7,6 @@ import { toRupees } from "@/lib/money";
 /** Cache tags – server actions call updateTag() with these after every edit. */
 export const MENU_TAG = "menu";
 export const SETTINGS_TAG = "settings";
-export const TABLES_TAG = "tables";
 
 export const mediaUrl = (path: string | null | undefined) => (path ? `/media/${path}` : undefined);
 
@@ -98,18 +97,4 @@ export const getCafeDetails = unstable_cache(
   },
   ["cafe-details"],
   { tags: [SETTINGS_TAG] },
-);
-
-/** Active tables for the guest's "Your table" picker and the /t/{slug} QR route. */
-export const getActiveTables = unstable_cache(
-  async () => {
-    const tables = await db.cafeTable.findMany({
-      where: { active: true },
-      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
-      select: { qrSlug: true, label: true },
-    });
-    return tables.map((t) => ({ slug: t.qrSlug, label: t.label }));
-  },
-  ["active-tables"],
-  { tags: [TABLES_TAG] },
 );
