@@ -1,10 +1,11 @@
 # Healthy Hunger – Task queue
 
 One task = one session. Prompt: **"Do task P1-03 from doc/TASKS.md."**
-Tick `[x]` when done. Each task ends with `pnpm typecheck && pnpm lint` passing.
+Tick `[x]` when done; `[~]` = covered by other work or no longer needed (say why on a `↪` line). Each task ends with `pnpm typecheck && pnpm lint` passing.
+Every open task has a `Plain:` line – what it means for the café, in everyday words – which the status board shows. Keep [`STATUS.md`](./STATUS.md) (what works today, for the owner) in step with finished work.
 Status board (for the team): https://claude.ai/artifact/GC4ttoJYv6kkz93LDh6oAa – after ticking tasks, regenerate with `node scripts/status-board.mjs <scratch>/build-board.html` and republish to that URL.
 
-**Next up:** launch (Phase 5) when the owner asks. Run P0-02 in parallel once a 3D scan is chosen.
+**Next up (in order):** P5-01 → P5-03 → P5-04 → P5-05 → P3-09 → P3-13. P5-02 needs the domain; P0-02 needs a 3D scan.
 Phases and design reasoning live in [`PLAN.md`](./PLAN.md); scope in [`goal`](./goal).
 
 Legend: **Files** = where the work goes · **Done when** = the check that closes it · ⛔ = blocked by an open question (PLAN.md §5).
@@ -12,16 +13,19 @@ Legend: **Files** = where the work goes · **Done when** = the check that closes
 ---
 
 ## Phase 0 – Design & 3D prototype
-- [ ] **P0-01 Sign-off on look + hero** – Owner reviews `/` and `/menu` on laptop + mid-range Android.
+- [ ] **P0-01 Owner signs off the look** – Owner reviews `/` and `/menu` on laptop + mid-range Android.
   Done when: owner approves; hero ≥ 55 fps laptop, smooth on Android (else open a perf task).
-- [ ] **P0-02 Photoreal hero** – feedback: current bowl looks animated/CGI. Replace code-built salad with a real
+  Plain: The owner looks at the website and menu on a laptop and an Android phone and says yes to the look.
+- [ ] **P0-02 Real-looking 3D dish** – feedback: current bowl looks animated/CGI. Replace code-built salad with a real
   photo-scanned GLB (own dish via Polycam = best; or a CC-BY Sketchfab veg salad scan + credit line).
   Keep: lazy load on `/` only, poster fallback, scroll story. Add: HDRI studio light, ACES tone mapping, DOF, Draco/Meshopt GLB ≤ 3 MB.
   Done when: owner says it looks real; LCP unaffected (poster first).
+  Plain: Swap the cartoon-style 3D salad on the home page for a real, photo-scanned dish so it looks appetising.
 
 ## Phase 1 – Foundation
-- [ ] **P1-01 Seed real menu** ⛔ final menu/prices – `prisma/seed.ts`.
+- [ ] **P1-01 Load the real menu** ⛔ final menu/prices – `prisma/seed.ts`.
   Done when: `pnpm db:seed` loads all categories/items/add-ons; `/menu` shows them.
+  Plain: Load the café's final menu and prices. (The owner can also type them in under Menu in the dashboard.)
 - [x] **P1-02 Login page + actions** – `src/app/admin/login/page.tsx`, `src/app/admin/login/actions.ts`.
   Zod-validated, rate-limited (`rate-limit.ts`), sets session cookie; logout action.
   Done when: seeded owner can log in/out; 6th bad attempt in the window is refused.
@@ -51,11 +55,11 @@ Legend: **Files** = where the work goes · **Done when** = the check that closes
   Done when: nothing in `src/` imports it; `pnpm db:seed` + build pass.
   ✅ 5 Oct: now `prisma/seed-data.ts` (menu + café defaults); `src/lib/cafe.ts` keeps only `NUTRITION_NOTE`.
 
-## Phase 2A – Shared lists (done, being replaced by 2B)
+## Phase 2A – Shared lists (replaced by 2B)
 Built 5 Oct (P2A-01…04): table QR route, guest list without totals, list synced to staff, "Table lists" screen.
 The owner clarified that the real flow needs order confirmation and billing, so Phase 2B turns the list into orders.
 
-## Phase 2B – Orders & bills (current, decided 5 Oct 2026)
+## Phase 2B – Orders & bills
 Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm done** → cashier goes to the table and **confirms the order on the dashboard with the guest's name + phone** → **Send to kitchen** → **Served** / **Ready to collect** → cashier **Generate bill** (one per table visit) → **Paid**. Customers never see totals; no tax for now.
 - [x] **P2B-01 Order + bill data model** – reuse `Order`/`OrderItem`/`OrderStatusLog`; add `Bill` (number, table, orders, subtotal, tax, total, payment method, paid at) and `Order.billId`.
   ✅ 5 Oct: `Bill` + `Order.billId` (payment on the bill); `src/lib/pricing.ts` with tests.
@@ -81,7 +85,7 @@ Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm
 - [x] **P2B-08 Takeaway run-through in the browser** – Ready to collect → bill → Picked up is unit-tested only so far.
   ✅ 7 Oct: ran #9/#10 guest phone ↔ dashboard. **Bug fixed:** paying a takeaway bill before pickup jumped READY → PAID, so the parcel vanished from "Ready to collect" and the guest saw "Paid" before collecting. Now paying keeps it READY (card shows "Paid", Cancel hidden – also refused on the server), and "Picked up" finishes it as PAID (`statusOnPayment` in `order-flow.ts`, tested). Verified #10: kitchen → ready → Bill #7 UPI → still waiting → Picked up → Paid; history 6 steps.
 
-## Phase 2 – Customer site (ordering parts deferred – see Phase 2A)
+## Phase 2 – Customer site
 - [x] **P2-01 Landing from DB** – Today's Pick + bestsellers read via `getPublicMenu`; café details from `CafeSettings`.
   ✅ Built 4 Oct: `src/app/page.tsx` + `getCafeDetails` (rendered per request, data cached).
 - [x] **P2-02 Landing scroll story** – camera moves bowl → "nutrition explode" → Today's Pick (GSAP or drei `ScrollControls`).
@@ -90,33 +94,51 @@ Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm
 - [x] **P2-03 SEO** – metadata, OG image, Maps link, `sitemap`/`robots`.
   ✅ Built 5 Oct: `opengraph-image.jpg` (64 KB, WhatsApp-safe), `robots.ts` (hides /admin, /api, /t), `sitemap.ts`, schema.org café JSON-LD. Set `SITE_URL` to the real domain at deploy (P5-02).
 - [x] **P2-04 Menu filters + search** – High protein (≥15 g), Light (<300 kcal), Bestseller, name search.
-- [ ] **P2-05 Table route** (superseded by P2A-01) – `src/app/t/[table]/page.tsx` reuses menu, table pre-filled; unknown/inactive table → `/menu`.
+- [~] **P2-05 Table route** – `src/app/t/[table]/page.tsx` reuses menu, table pre-filled; unknown/inactive table → `/menu`.
+  ↪ No tables any more – one café QR opens the menu; old table links redirect there.
 - [x] **P2-06 View-only mode** – ordering-off setting hides cart/ordering with a notice.
   ✅ Menu side built (`orderingEnabled` from CafeSettings); the on/off switch itself arrives with P4-06.
-- [ ] **P2-07 (now part of 2B) Order form UI** (default: phone required for both types, per goal doc; switchable later) – dine-in/parcel, pickup slot, note, consent, privacy link (RHF + Zod).
-- [ ] **P2-08 (now part of 2B) Returning-customer autofill** – lookup by phone (rate-limited, returns name/email only).
-- [ ] **P2-09 (now part of 2B) Place-order action** (tax from `CafeSettings.taxBasisPoints`, 0 until GST is confirmed) – server pricing from DB, one open order per table, per-phone hourly limit, ordering-off check, customer upsert, status log.
+- [~] **P2-07 Order form UI** (default: phone required for both types, per goal doc; switchable later) – dine-in/parcel, pickup slot, note, consent, privacy link (RHF + Zod).
+  ↪ Built as the guest's "Your details" step in P2B-09 (no pickup-time slot – takeaway is as soon as it's ready).
+- [~] **P2-08 Returning-customer autofill** – lookup by phone (rate-limited, returns name/email only).
+  ↪ The guest's phone remembers their name and number (P2B-09) – no lookup by phone needed.
+- [~] **P2-09 Place-order action** (tax from `CafeSettings.taxBasisPoints`, 0 until GST is confirmed) – server pricing from DB, one open order per table, per-phone hourly limit, ordering-off check, customer upsert, status log.
+  ↪ Built in P2B-09 (`placeOrder`: server prices, ordering-off check, per-phone and per-network limits).
   Done when: unit tests (Vitest) cover pricing + guard rails.
-- [ ] **P2-10 (now part of 2B) Order status page** – `src/app/order/[id]/page.tsx` with polling.
+- [~] **P2-10 Order status page** – `src/app/order/[id]/page.tsx` with polling.
+  ↪ The guest follows their order live on the menu page (P2B-03).
 - [x] **P2-11 Privacy page** – `src/app/privacy/page.tsx`, linked from footer + form.
   ✅ Built 5 Oct: describes the selection-only flow; lists auto-deleted after 24 h (`purgeOldSelections`). Have it legally checked before launch.
 - [x] **P2-12 Perf check** – Lighthouse on `/menu`, throttled 4G < 2 s; no three.js in menu bundle.
   ✅ 5 Oct, prod build, Lighthouse mobile with devtools throttling (562 ms RTT, 1.5 Mbps, CPU ×4): LCP 1.7–1.8 s, perf 94, CLS 0; no three.js in the 14 menu scripts (334 KiB). Fix: menu cards no longer render hidden for an entrance animation (`AnimatePresence initial={false}`); favicon 149 KB → small. Follow-up idea: TTI 4.8 s – lazy-load the item/list sheets if taps feel slow on phones.
 
 ## Phase 3 – Live dashboard
-- [ ] **P3-01 Live orders API** – `src/app/api/orders/live/route.ts` (staff auth, changes since timestamp).
-- [ ] **P3-02 Tables view** – grid of table cards, 5 s polling (TanStack Query).
-- [ ] **P3-03 Parcel lane** – sorted by pickup time; masked phone for staff.
-- [ ] **P3-04 Board view** – columns New → Done.
-- [ ] **P3-05 Status actions** – accept/prepare/ready/served, cancel with reason, optimistic updates, `OrderStatusLog`.
-- [ ] **P3-06 New-order alert** – sound + highlight until accepted.
-- [ ] **P3-07 Mark paid** – cash / UPI / card.
-- [ ] **P3-08 Add items to open table order.**
+- [~] **P3-01 Live orders API** – `src/app/api/orders/live/route.ts` (staff auth, changes since timestamp).
+  ↪ Built in P2B-02 – live push to the dashboard, no polling needed.
+- [~] **P3-02 Tables view** – grid of table cards, 5 s polling (TanStack Query).
+  ↪ No tables any more (P2B-09).
+- [~] **P3-03 Parcel lane** – sorted by pickup time; masked phone for staff.
+  ↪ "Ready to collect" group on Live orders (P2B-04); staff see masked phones.
+- [~] **P3-04 Board view** – columns New → Done.
+  ↪ Live orders is grouped New → Accepted → In the kitchen → Ready → Done (P2B-04, P2B-09).
+- [~] **P3-05 Status actions** – accept/prepare/ready/served, cancel with reason, optimistic updates, `OrderStatusLog`.
+  ↪ Built in P2B-04 / P2B-09 with a full status history.
+- [~] **P3-06 New-order alert** – sound + highlight until accepted.
+  ↪ Chime + "New orders" group until accepted (P2B-09).
+- [~] **P3-07 Mark paid** – cash / UPI / card.
+  ↪ Cash / UPI / Card on the bill (P2B-05).
+- [~] **P3-08 Add items to an open order**
+  ↪ Staff can edit items until the kitchen starts; a guest's extra orders go on the same bill (P2B-04, P2B-09).
 - [ ] **P3-09 Counter order** – same form for walk-ins.
-- [ ] **P3-10 Order history** – filters (date, number, phone, table, type, status).
-- [ ] **P3-11 Bill / KOT print** ⛔ thermal printer – print CSS layouts.
-- [ ] **P3-12 Offline banner + catch-up.**
-- [ ] **P3-13 Mock service** – 20-order run with staff. Done when: no help needed.
+  Plain: Staff can enter an order on the dashboard for a guest who doesn't want to use their phone.
+- [~] **P3-10 Order history** – filters (date, number, phone, table, type, status).
+  ↪ Built in P2B-06.
+- [ ] **P3-11 Kitchen ticket (KOT) print** ⛔ thermal printer – print CSS layouts (bill print is already built).
+  Plain: Print a kitchen ticket for each order. Waiting to hear whether the café has a thermal printer.
+- [~] **P3-12 Offline banner + catch-up**
+  ↪ Offline banner (P1-03); screens catch up on reconnect, and the live link checks itself (P2B-10).
+- [ ] **P3-13 Practice service with staff** – 20-order run with staff. Done when: no help needed.
+  Plain: A practice session where staff handle about 20 test orders on their own, to catch anything confusing before opening day.
 
 ## Phase 4 – Customers & reports
 - [x] **P4-01 Customer list + search** (owner).
@@ -127,15 +149,21 @@ Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm
   ✅ 7 Oct: "Delete data" on the profile (confirm) removes the customer record and anonymises their old orders + bills ("Deleted on request", phone removed, amounts kept) and their order rate-limit row. "Export CSV" on the list (follows "Offers only") – owner-only route, `src/lib/csv.ts` (tested: quoting, formula-injection guard, BOM for Excel). Verified: Takeaway Test deleted → orders #9/#10 + bills #6/#7 anonymised.
 - [x] **P4-04 Reports** – today, by type, top items, by hour/day/month (Recharts).
   ✅ 7 Oct: `/admin/reports` (owner) – Today / Yesterday / 7 / 30 days / This month or custom dates; tiles (sales, bills, average, guests + regulars with 2+ visits, dine-in vs takeaway, cancelled orders); sales by hour, by day (ranges > 1 day), top 10 items, last 12 months. Sales = paid, non-void bills grouped in IST (`src/lib/data/reports.ts`); ranges + buckets in `src/lib/reports.ts` (tested). Charts are plain HTML bars (no Recharts – no extra JS): peak labelled, hover/focus tooltip, "Show as table"; bar colour validated for light + dark (`--chart-1`). Verified against the database (30 days ₹3,853 / 9 bills, yesterday ₹817).
-- [x] **P4-05 Tables & QR** – add/rename tables, print-ready QR cards.
-  ✅ 5 Oct: `/admin/tables` (add, rename keeps QR slug, seats, on/off, remove) + `/admin/print/tables` (4 cards per A4, warns while SITE_URL is localhost). Still need the real table count from the café (6 seeded).
+- [x] **P4-05 QR code** – print-ready QR cards (was per table; now one café QR since 7 Oct).
+  ✅ 5 Oct: per-table QR screen. 7 Oct: replaced by `/admin/qr` + `/admin/print/qr` – one café QR, 4 cards per A4 (warns while SITE_URL is localhost).
 - [x] **P4-06 Settings** – café details, ordering on/off, tax %, staff accounts (owner).
   ✅ 5 Oct: `/admin/settings` – Café (details, hours, Today's pick, "Guests can make lists" switch), Staff logins (create with one-time password, new password, switch off – both end their sessions), My password. Tax % left out while there are no totals.
 
 ## Phase 5 – Launch
-- [ ] **P5-01 Docker Compose** – Next.js + Postgres + Caddy; production env.
-- [ ] **P5-02 Deploy to Mumbai VPS** ⛔ domain – DNS + HTTPS.
-- [ ] **P5-03 Backups** – daily `pg_dump`, 30-day retention, tested restore.
-- [ ] **P5-04 Hardening** – security headers, rate limits verified, final privacy page.
-- [ ] **P5-05 E2E** – Playwright order flow on phone viewport; Lighthouse pass.
-- [ ] **P5-06 Print table QR cards.**
+- [ ] **P5-01 Package for the server** – Next.js + Postgres + Caddy; production env.
+  Plain: Package the app so it runs the same way on the café's server as on our computers.
+- [ ] **P5-02 Go live on the café's web address** ⛔ domain – DNS + HTTPS.
+  Plain: Put the site live on a server in Mumbai at the café's own web address, with the padlock (HTTPS).
+- [ ] **P5-03 Daily backups** – daily `pg_dump`, 30-day retention, tested restore.
+  Plain: Save a copy of all orders, bills and customers every day, keep 30 days, and prove we can restore one.
+- [ ] **P5-04 Security check** – security headers, rate limits verified, final privacy page.
+  Plain: A security check before going live, plus the final privacy note.
+- [ ] **P5-05 Automatic order tests** – Playwright order flow on phone viewport; Lighthouse pass.
+  Plain: Automatic tests that place a full order on a phone-sized screen, so future changes can't quietly break ordering.
+- [ ] **P5-06 Print the café QR cards** – from Dashboard → QR code once the site is live.
+  Plain: Print the QR cards for tables, the counter and the door – after the site has its real web address.

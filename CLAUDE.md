@@ -33,5 +33,6 @@ Before calling a task done: `pnpm typecheck && pnpm lint`.
 
 ## Working style
 - One task from `doc/TASKS.md` per session; tick it when done and note any decision in `doc/PLAN.md`.
+- When a task changes what the café can do, update `doc/STATUS.md` (everyday words, for the owner) and give any new open task a `Plain:` line.
 - Then refresh the team status board: `node scripts/status-board.mjs <scratchpad>/build-board.html` and republish it to https://claude.ai/artifact/GC4ttoJYv6kkz93LDh6oAa (pass it as `url`).
 - Be brief in replies; don't re-read `doc/goal` unless the task needs scope detail.

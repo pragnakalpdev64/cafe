@@ -169,13 +169,13 @@ Online UPI (Razorpay), WhatsApp updates, kitchen screen, SSE instead of polling,
 ## 5. Open questions that block specific phases
 
 Resolved: brand colours (new green/orange brand, 4 Oct 2026); dine-in needs name + phone, no tax for now, one bill per table visit (5 Oct 2026).
-| Question (from goal doc) | Needed by |
+| Question (from goal doc) | What the answer unlocks |
 |---|---|
-| Final menu data + prices, Oats bowl items | Phase 1 seed (owner can now edit in the menu manager) |
-| Unclear item names: "…6ole…" (Chole Bowl?), "Chipotle Avocado Cucumber" (one or two sandwiches?) | Phase 1 seed |
-| Café details: address, phone, WhatsApp, Instagram, hours | Phase 2 |
-| GST registered? (bills show no tax until confirmed; GSTIN needed if yes) | Settings tax switch |
-| Thermal printer? | Phase 3 bill / KOT layout |
-| Number of staff logins | Phase 4 / 5 |
-| Domain + opening date | Phase 5 |
-| Photoreal hero: scan your own dish (Polycam) or use a CC-BY Sketchfab veg salad scan? | Phase 0 (P0-02) |
+| Final menu and prices, including the Oats bowl items | Loading the real menu (the owner can also type it in under Menu) |
+| Two unclear dish names: is "…6ole…" the Chole Bowl? Is "Chipotle Avocado Cucumber" one sandwich or two? | Loading the real menu |
+| Café address, phone, WhatsApp, Instagram and opening hours | The home page and printed bills |
+| Is the café GST-registered? If yes, the GSTIN | Showing tax on bills (none is shown until then) |
+| Is there a thermal printer at the counter or in the kitchen? | Kitchen tickets and the receipt size |
+| How many staff logins are needed at launch? | Setting up staff accounts |
+| The web address (domain) and the opening date | Going live, and the launch timeline |
+| For the home-page 3D dish: scan one of our own dishes, or use a free online model with a credit line? | The real-looking 3D dish |
