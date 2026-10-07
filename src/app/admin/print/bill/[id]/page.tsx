@@ -24,6 +24,7 @@ export default async function BillPage({ params }: PageProps<"/admin/print/bill/
       include: {
         orders: { orderBy: { number: "asc" }, select: { number: true, items: true } },
         createdBy: { select: { name: true } },
+        voidedBy: { select: { name: true } },
       },
     }),
     getCafeDetails(),
@@ -70,11 +71,27 @@ export default async function BillPage({ params }: PageProps<"/admin/print/bill/
             {bill.customerPhone && ` · ${maskPhone(bill.customerPhone)}`}
           </dd>
           <dt>Orders</dt>
-          <dd className="text-right">{bill.orders.map((o) => `#${o.number}`).join(", ")}</dd>
+          <dd className="text-right">
+            {(bill.voidedAt ? bill.voidedOrderNumbers : bill.orders.map((o) => o.number))
+              .map((n) => `#${n}`)
+              .join(", ")}
+          </dd>
         </dl>
 
+        {bill.voidedAt && (
+          <div className="mt-3 border-2 border-black p-2 text-center">
+            <p className="font-sans text-xl font-extrabold tracking-widest">VOID</p>
+            <p>{bill.voidReason}</p>
+            <p className="text-[9px]">
+              {bill.voidedAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+              {bill.voidedBy && ` · ${bill.voidedBy.name}`}
+            </p>
+          </div>
+        )}
+
         <div className="my-2 border-t border-dashed border-black" />
-        <table className="w-full">
+        {/* a void bill's orders were unlinked, so it has no lines – only its totals */}
+        <table className={bill.voidedAt ? "hidden" : "w-full"}>
           <thead>
             <tr className="text-left">
               <th className="font-bold">Item</th>
@@ -114,9 +131,11 @@ export default async function BillPage({ params }: PageProps<"/admin/print/bill/
 
         <div className="my-2 border-t border-dashed border-black" />
         <p className="text-center font-bold">
-          {bill.paidAt
-            ? `PAID · ${METHOD[bill.paymentMethod ?? "CASH"]} · ${bill.paidAt.toLocaleTimeString("en-IN", { timeStyle: "short" })}`
-            : "Please pay at the counter"}
+          {bill.voidedAt
+            ? "This bill is void – not payable"
+            : bill.paidAt
+              ? `PAID · ${METHOD[bill.paymentMethod ?? "CASH"]} · ${bill.paidAt.toLocaleTimeString("en-IN", { timeStyle: "short" })}`
+              : "Please pay at the counter"}
         </p>
         <p className="mt-2 text-center">Thank you! Eat well, live well.</p>
         {bill.createdBy && <p className="mt-1 text-center text-[9px]">Billed by {bill.createdBy.name}</p>}

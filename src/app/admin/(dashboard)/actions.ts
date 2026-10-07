@@ -278,12 +278,13 @@ export async function markBillPaid(
   const bill = await db.bill.findUnique({ where: { id: parsed.data.billId }, include: { orders: true } });
   if (!bill) return { ok: false, error: "Bill not found." };
   if (bill.paidAt) return { ok: false, error: `Bill #${bill.number} is already paid.` };
+  if (bill.voidedAt) return { ok: false, error: `Bill #${bill.number} is void – make a new bill.` };
 
   const now = new Date();
   const label = { CASH: "cash", UPI: "UPI", CARD: "card" }[parsed.data.method];
   const done = await db.$transaction(async (tx) => {
     const paid = await tx.bill.updateMany({
-      where: { id: bill.id, paidAt: null },
+      where: { id: bill.id, paidAt: null, voidedAt: null },
       data: { paidAt: now, paymentMethod: parsed.data.method },
     });
     if (paid.count === 0) return false;
@@ -315,28 +316,63 @@ export async function markBillPaid(
     }
     return true;
   });
-  if (!done) return { ok: false, error: `Bill #${bill.number} was just paid by someone else.` };
+  if (!done) return { ok: false, error: `Bill #${bill.number} was just paid or voided by someone else.` };
   for (const o of bill.orders)
     await publish({ type: "order", orderId: o.id, number: o.number, status: statusOnPayment(o.status) });
   return { ok: true };
 }
 
-/** Undo a bill made by mistake (only before it's paid); its orders go back to "to bill". */
-export async function voidBill(billId: string): Promise<{ ok: true } | Fail> {
+const VoidSchema = z.object({
+  billId: z.string().min(1).max(40),
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Say why the bill is voided")
+    .max(200, "Keep the reason under 200 characters"),
+});
+
+/**
+ * Void a bill made by mistake (only before it's paid). The bill is kept – marked void with a
+ * reason – so bill numbers stay continuous; its orders go back to "to bill".
+ */
+export async function voidBill(billId: string, reason: string): Promise<{ ok: true } | Fail> {
   const me = await staff();
   if ("ok" in me) return me;
-  const id = z.string().min(1).max(40).safeParse(billId);
-  if (!id.success) return { ok: false, error: "Bill not found." };
+  const parsed = VoidSchema.safeParse({ billId, reason });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
   const bill = await db.bill.findUnique({
-    where: { id: id.data },
-    include: { orders: { select: { id: true, number: true, status: true } } },
+    where: { id: parsed.data.billId },
+    include: { orders: { select: { id: true, number: true, status: true }, orderBy: { number: "asc" } } },
   });
   if (!bill) return { ok: false, error: "Bill not found." };
-  if (bill.paidAt) return { ok: false, error: `Bill #${bill.number} is paid and can't be undone.` };
-  await db.$transaction([
-    db.order.updateMany({ where: { billId: bill.id }, data: { billId: null } }),
-    db.bill.delete({ where: { id: bill.id } }),
-  ]);
+  if (bill.voidedAt) return { ok: false, error: `Bill #${bill.number} is already void.` };
+  if (bill.paidAt) return { ok: false, error: `Bill #${bill.number} is paid and can't be voided.` };
+
+  const done = await db.$transaction(async (tx) => {
+    // only if nobody paid or voided it in the meantime
+    const voided = await tx.bill.updateMany({
+      where: { id: bill.id, paidAt: null, voidedAt: null },
+      data: {
+        voidedAt: new Date(),
+        voidReason: parsed.data.reason,
+        voidedById: me.id,
+        voidedOrderNumbers: bill.orders.map((o) => o.number),
+      },
+    });
+    if (voided.count === 0) return false;
+    await tx.order.updateMany({ where: { billId: bill.id }, data: { billId: null } });
+    await tx.orderStatusLog.createMany({
+      data: bill.orders.map((o) => ({
+        orderId: o.id,
+        fromStatus: o.status,
+        toStatus: o.status,
+        changedById: me.id,
+        note: `Bill #${bill.number} voided: ${parsed.data.reason}`,
+      })),
+    });
+    return true;
+  });
+  if (!done) return { ok: false, error: `Bill #${bill.number} was just paid or voided by someone else.` };
   for (const o of bill.orders)
     await publish({ type: "order", orderId: o.id, number: o.number, status: o.status });
   return { ok: true };

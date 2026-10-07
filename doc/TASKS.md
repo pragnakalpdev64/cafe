@@ -4,7 +4,7 @@ One task = one session. Prompt: **"Do task P1-03 from doc/TASKS.md."**
 Tick `[x]` when done. Each task ends with `pnpm typecheck && pnpm lint` passing.
 Status board (for the team): https://claude.ai/artifact/GC4ttoJYv6kkz93LDh6oAa – after ticking tasks, regenerate with `node scripts/status-board.mjs <scratch>/build-board.html` and republish to that URL.
 
-**Next up (in order):** P2B-07 → P4-01 → P4-02 → P4-03 → P4-04, then launch (Phase 5) when the owner asks. Run P0-02 in parallel once a 3D scan is chosen.
+**Next up (in order):** P4-01 → P4-02 → P4-03 → P4-04, then launch (Phase 5) when the owner asks. Run P0-02 in parallel once a 3D scan is chosen.
 Phases and design reasoning live in [`PLAN.md`](./PLAN.md); scope in [`goal`](./goal).
 
 Legend: **Files** = where the work goes · **Done when** = the check that closes it · ⛔ = blocked by an open question (PLAN.md §5).
@@ -75,7 +75,8 @@ Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm
 - [x] **P2B-09 One QR, guests order themselves** (owner, 7 Oct) – no per-table QR or tables; guest picks Dine-in/Takeaway, enters name + phone and places the order (NEW); staff Accept → kitchen.
   ✅ 7 Oct: `placeOrder` in `src/app/selection-actions.ts` (server prices, ordering-off check, rate limits per phone + network, customer upsert); list sheet with Dine-in/Takeaway + details step (`cart-bar.tsx`, name/phone remembered on the device); dashboard "New orders" (chime) → Accept → "Accepted" → kitchen; dine-in bill = one guest's served orders; `/admin/qr` + `/admin/print/qr` (one code, 4 cards per A4); `/t/*` redirects to `/menu`; Tables screen removed. Verified #11 + #12 (same guest) → Bill #8 ₹348 by card; guest phone followed every step.
 - [ ] **P2B-10 Drop unused table data** – remove `CafeTable`, `Order/Bill/Selection.tableId` and Selection READY with a migration (safe once no one needs old table history).
-- [ ] **P2B-07 Void bills instead of deleting them** – Undo bill currently deletes the bill, leaving a gap in bill numbers; keep it as VOID with a reason so numbering stays continuous (needed before GST invoices).
+- [x] **P2B-07 Void bills instead of deleting them** – Undo bill currently deletes the bill, leaving a gap in bill numbers; keep it as VOID with a reason so numbering stays continuous (needed before GST invoices).
+  ✅ 7 Oct: migration `void_bills` (`Bill.voidedAt/voidReason/voidedById/voidedOrderNumbers`); "Void bill…" asks a reason (quick picks), keeps the bill, unlinks its orders back to "To bill" and logs "Bill #N voided: reason" on each order; void bills can't be paid; print shows a VOID stamp. Verified: Bill #9 voided → #13 re-billed as #10 (no gap), history + print correct.
 - [x] **P2B-08 Takeaway run-through in the browser** – Ready to collect → bill → Picked up is unit-tested only so far.
   ✅ 7 Oct: ran #9/#10 guest phone ↔ dashboard. **Bug fixed:** paying a takeaway bill before pickup jumped READY → PAID, so the parcel vanished from "Ready to collect" and the guest saw "Paid" before collecting. Now paying keeps it READY (card shows "Paid", Cancel hidden – also refused on the server), and "Picked up" finishes it as PAID (`statusOnPayment` in `order-flow.ts`, tested). Verified #10: kitchen → ready → Bill #7 UPI → still waiting → Picked up → Paid; history 6 steps.
 

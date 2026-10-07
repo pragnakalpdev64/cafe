@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 /** Status colours always come with a text label (goal doc → Accessibility). */
 export const ORDER_STATUS: Record<OrderStatus, { label: string; className: string }> = {
   NEW: { label: "New", className: "bg-status-new/15 text-status-new" },
-  ACCEPTED: { label: "Confirmed", className: "bg-status-accepted/15 text-status-accepted" },
+  ACCEPTED: { label: "Accepted", className: "bg-status-accepted/15 text-status-accepted" },
   PREPARING: { label: "In kitchen", className: "bg-status-preparing/15 text-status-preparing" },
   READY: { label: "Ready", className: "bg-status-ready/15 text-status-ready" },
   SERVED: { label: "Served", className: "bg-status-done/15 text-status-done" },

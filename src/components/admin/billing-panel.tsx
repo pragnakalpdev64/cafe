@@ -1,14 +1,17 @@
 "use client";
 
-import { Banknote, CreditCard, LoaderCircle, Printer, ReceiptText, Smartphone, Undo2 } from "lucide-react";
+import { Ban, Banknote, CreditCard, LoaderCircle, Printer, ReceiptText, Smartphone } from "lucide-react";
 import Link from "next/link";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { generateBill, markBillPaid, voidBill } from "@/app/admin/(dashboard)/actions";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import type { LiveBill, LiveOrder } from "@/lib/data/live";
 import { formatINR } from "@/lib/format";
 import { toRupees } from "@/lib/money";
+import { cn } from "@/lib/utils";
 
 type ToBill = {
   key: string;
@@ -145,6 +148,7 @@ const METHODS = [
 
 function BillCard({ bill, onChanged }: { bill: LiveBill; onChanged: () => void }) {
   const [pending, start] = useTransition();
+  const [voiding, setVoiding] = useState(false);
   const run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>, success: string) =>
     start(async () => {
       const res = await fn();
@@ -190,10 +194,86 @@ function BillCard({ bill, onChanged }: { bill: LiveBill; onChanged: () => void }
         size="sm"
         disabled={pending}
         className="mt-2 self-start rounded-full text-muted-foreground"
-        onClick={() => run(() => voidBill(bill.id), `Bill #${bill.number} undone`)}
+        onClick={() => setVoiding(true)}
       >
-        <Undo2 data-icon="inline-start" /> Undo bill
+        <Ban data-icon="inline-start" /> Void bill…
       </Button>
+      <VoidDialog bill={voiding ? bill : null} onClose={() => setVoiding(false)} onDone={onChanged} />
     </li>
+  );
+}
+
+const VOID_REASONS = ["Wrong items on the bill", "Guest is ordering more", "Made by mistake"];
+
+function VoidDialog({
+  bill,
+  onClose,
+  onDone,
+}: {
+  bill: LiveBill | null;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [pending, start] = useTransition();
+  const close = () => {
+    setReason("");
+    onClose();
+  };
+  const submit = () =>
+    bill &&
+    start(async () => {
+      const res = await voidBill(bill.id, reason);
+      if (res.ok) {
+        toast.success(`Bill #${bill.number} voided – its orders are back in "To bill"`);
+        onDone();
+        close();
+      } else toast.error(res.error);
+    });
+
+  return (
+    <Dialog open={!!bill} onOpenChange={(o) => !o && close()}>
+      <DialogContent>
+        <DialogTitle>Void bill #{bill?.number}?</DialogTitle>
+        <DialogDescription>
+          The bill is kept as void (bill numbers stay in order) and its orders go back to &quot;To bill&quot;.
+          Say why – it&apos;s kept in the order history.
+        </DialogDescription>
+        <div className="flex flex-wrap gap-2">
+          {VOID_REASONS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setReason(r)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-sm",
+                reason === r
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border hover:bg-muted",
+              )}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+        <Textarea
+          aria-label="Reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          maxLength={200}
+          rows={2}
+          placeholder="Or type a reason"
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={close}>
+            Keep bill
+          </Button>
+          <Button variant="destructive" disabled={pending || reason.trim().length < 3} onClick={submit}>
+            {pending && <LoaderCircle className="animate-spin" aria-hidden />}
+            Void bill
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -75,7 +75,7 @@ export async function getLiveBoard(role: Role): Promise<LiveBoard> {
       include: { items: true, bill: { select: { paidAt: true } } },
     }),
     db.bill.findMany({
-      where: { paidAt: null },
+      where: { paidAt: null, voidedAt: null },
       orderBy: { createdAt: "asc" },
       include: {
         orders: { select: { number: true }, orderBy: { number: "asc" } },

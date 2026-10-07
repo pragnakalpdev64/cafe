@@ -159,23 +159,30 @@ model Order {
 
 /// One bill per table visit (all its served rounds) or per takeaway order.
 model Bill {
-  id             String         @id @default(cuid())
-  number         Int            @unique @default(autoincrement())
-  type           OrderType
-  tableId        String?
-  table          CafeTable?     @relation(fields: [tableId], references: [id], onDelete: SetNull)
-  customerName   String
-  customerPhone  String?
-  subtotalPaise  Int
-  taxBasisPoints Int            @default(0)
-  taxPaise       Int            @default(0)
-  totalPaise     Int
-  paymentMethod  PaymentMethod?
-  paidAt         DateTime?
-  createdById    String?
-  createdBy      StaffUser?     @relation("BillsCreated", fields: [createdById], references: [id], onDelete: SetNull)
-  orders         Order[]
-  createdAt      DateTime       @default(now())
+  id                 String         @id @default(cuid())
+  number             Int            @unique @default(autoincrement())
+  type               OrderType
+  tableId            String?
+  table              CafeTable?     @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  customerName       String
+  customerPhone      String?
+  subtotalPaise      Int
+  taxBasisPoints     Int            @default(0)
+  taxPaise           Int            @default(0)
+  totalPaise         Int
+  paymentMethod      PaymentMethod?
+  paidAt             DateTime?
+  createdById        String?
+  createdBy          StaffUser?     @relation("BillsCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  orders             Order[]
+  // a bill made by mistake is voided, never deleted, so bill numbers stay continuous;
+  // its orders are unlinked (to be billed again) and their numbers kept here
+  voidedAt           DateTime?
+  voidReason         String?
+  voidedOrderNumbers Int[]          @default([])
+  voidedById         String?
+  voidedBy           StaffUser?     @relation("BillsVoided", fields: [voidedById], references: [id], onDelete: SetNull)
+  createdAt          DateTime       @default(now())
 
   @@index([createdAt])
   @@index([paidAt])
@@ -223,6 +230,7 @@ model StaffUser {
   statusChanges  OrderStatusLog[]
   counterOrders  Order[]          @relation("CounterOrders")
   billsCreated   Bill[]           @relation("BillsCreated")
+  billsVoided    Bill[]           @relation("BillsVoided")
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 }
