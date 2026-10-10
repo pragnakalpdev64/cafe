@@ -24,7 +24,7 @@ Everything needed to take and bill orders is built and tested on a test computer
 
 ### Staff
 - New orders appear instantly with a chime. Accept them, change items, or cancel with a reason.
-- Take an order at the counter for a walk-in guest – name needed, phone optional.
+- Take an order at the counter for a walk-in guest, using the same menu guests see on their phones – name needed, phone optional.
 - Move orders along: send to the kitchen, then Served (dine-in) or Ready to collect and Picked up (takeaway).
 - See what guests are choosing before they order.
 - Make the bill – one bill for a guest's whole visit, even across several orders. Mark it paid by cash, UPI or card, and print a receipt.

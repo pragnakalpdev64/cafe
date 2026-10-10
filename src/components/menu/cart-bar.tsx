@@ -3,8 +3,10 @@
 import { ArrowLeft, ChefHat, CircleCheck, ClipboardList, LoaderCircle, TriangleAlert } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { createCounterOrder } from "@/app/admin/(dashboard)/actions";
 import { type GuestOrder, getGuestOrders, placeOrder, syncSelection } from "@/app/selection-actions";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { itemCount, lineKey, type OrderKind, useCart } from "@/lib/cart-store";
+import { itemCount, lineKey, type OrderKind, useCartStore } from "@/lib/cart-store";
 import type { AddOn, MenuItem } from "@/lib/menu-types";
 import { cn } from "@/lib/utils";
 import { INDIAN_MOBILE } from "@/lib/validators/phone";
@@ -26,15 +28,22 @@ const KIND_LABEL: Record<OrderKind, string> = { DINE_IN: "Dine-in", PARCEL: "Tak
 /**
  * The guest's list. Staff see it live while the guest picks; the guest chooses dine-in or
  * takeaway, adds their name and number, and places the order. Staff accept it. No totals here.
+ *
+ * `counter` = staff taking an order at the counter with the same menu: nothing is mirrored or
+ * tracked, the guest's phone is optional, and the order is created already accepted.
  */
 export function CartBar({
   items,
   addOns,
+  counter = false,
 }: {
   /** menu items and add-ons, so guests can change add-ons from the list */
   items: MenuItem[];
   addOns: AddOn[];
+  counter?: boolean;
 }) {
+  const useCart = useCartStore();
+  const router = useRouter();
   const { clientId, lines, kind, guest, orders, showConfirmed } = useCart();
   const { setQuantity, setAddOns, setKind, orderPlaced, dismissConfirmed, clear } = useCart.getState();
   const [hydrated, setHydrated] = useState(false);
@@ -60,12 +69,12 @@ export function CartBar({
 
   useEffect(() => {
     void Promise.resolve(useCart.persist.rehydrate()).then(() => setHydrated(true));
-  }, []);
+  }, [useCart]);
 
   // Mirror the list to the dashboard shortly after every change.
   const shared = useRef(false);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || counter) return;
     if (count === 0 && !shared.current) return; // nothing shared yet, nothing to remove
     const timer = setTimeout(async () => {
       setSync("saving");
@@ -86,12 +95,12 @@ export function CartBar({
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [hydrated, lines, kind, clientId, count]);
+  }, [hydrated, counter, lines, kind, clientId, count]);
 
   // Live: every status change of this guest's orders (also catches up after being offline –
   // the stream sends the current state on connect), and orders placed from another tab.
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || counter) return;
     const source = new EventSource(`/api/guest/stream?cid=${clientId}&orders=${orderIds}`);
     source.addEventListener("confirmed", (e) => {
       const { orderId, number } = JSON.parse((e as MessageEvent).data) as { orderId: string; number: number };
@@ -107,11 +116,12 @@ export function CartBar({
       clearInterval(poll);
       source.close();
     };
-  }, [hydrated, clientId, orderIds, orderPlaced, loadOrders]);
+  }, [hydrated, counter, useCart, clientId, orderIds, orderPlaced, loadOrders]);
 
   const active = guestOrders.filter(isActive);
   // with an empty list, the bar and sheet show the guest's orders instead
-  const tracking = count === 0 && (active.length > 0 || (showConfirmed && guestOrders.length > 0));
+  const tracking =
+    !counter && count === 0 && (active.length > 0 || (showConfirmed && guestOrders.length > 0));
   const headline = active[0] ?? guestOrders[0];
 
   const openSheet = () => {
@@ -156,7 +166,9 @@ export function CartBar({
                 <span className="block text-base leading-tight font-semibold">
                   {count === 0
                     ? `Order #${headline?.number ?? latest?.number} · ${headline ? guestStatusLabel(headline) : "Placed"}`
-                    : "Your list"}
+                    : counter
+                      ? "Counter order"
+                      : "Your list"}
                 </span>
                 <span className="block text-xs text-white/80">
                   {count === 0
@@ -201,10 +213,19 @@ export function CartBar({
               clientId={clientId}
               kind={kind}
               count={count}
-              initial={guest}
+              counter={counter}
+              initial={counter ? null : guest}
               lines={lines}
               onBack={() => setStep("list")}
               onPlaced={(order, details) => {
+                if (counter) {
+                  // back to Live orders, where the new order is waiting to go to the kitchen
+                  clear();
+                  setOpen(false);
+                  toast.success(`Counter order #${order.number} – send it to the kitchen when ready`);
+                  router.push("/admin");
+                  return;
+                }
                 orderPlaced(order, details);
                 shared.current = false;
                 setStep("list");
@@ -215,9 +236,13 @@ export function CartBar({
           ) : (
             <>
               <div className="px-5 pt-6 pb-2">
-                <SheetTitle className="font-heading text-2xl font-bold">Your list</SheetTitle>
+                <SheetTitle className="font-heading text-2xl font-bold">
+                  {counter ? "Counter order" : "Your list"}
+                </SheetTitle>
                 <SheetDescription>
-                  Dine-in or takeaway? Check your items, then add your name and number to order.
+                  {counter
+                    ? "Dine-in or takeaway? Check the items with the guest, then add their name."
+                    : "Dine-in or takeaway? Check your items, then add your name and number to order."}
                 </SheetDescription>
               </div>
 
@@ -267,7 +292,7 @@ export function CartBar({
                     disabled={count === 0}
                     onClick={() => setStep("details")}
                   >
-                    Next – your details
+                    {counter ? "Next – guest's details" : "Next – your details"}
                   </Button>
                 </div>
               </div>
@@ -283,6 +308,7 @@ function DetailsStep({
   clientId,
   kind,
   count,
+  counter,
   initial,
   lines,
   onBack,
@@ -291,6 +317,8 @@ function DetailsStep({
   clientId: string;
   kind: OrderKind;
   count: number;
+  /** staff entering a walk-in guest's order: phone optional, no offers question */
+  counter: boolean;
   initial: { name: string; phone: string } | null;
   lines: { itemId: string; addOnIds: string[]; quantity: number }[];
   onBack: () => void;
@@ -302,21 +330,35 @@ function DetailsStep({
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [pending, start] = useTransition();
-  const phoneOk = INDIAN_MOBILE.test(phone);
+  const phoneOk = counter && phone === "" ? true : INDIAN_MOBILE.test(phone);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     start(async () => {
       try {
+        const items = lines.map((l) => ({ itemId: l.itemId, addOnIds: l.addOnIds, quantity: l.quantity }));
+        const takeaway = kind === "PARCEL";
+        if (counter) {
+          const res = await createCounterOrder({
+            takeaway,
+            name,
+            phone,
+            note: note.trim() || undefined,
+            items,
+          });
+          if (res.ok) onPlaced({ id: "", number: res.number }, { name: name.trim(), phone });
+          else setError({ message: res.error, problems: res.problems });
+          return;
+        }
         const res = await placeOrder({
           clientId,
-          takeaway: kind === "PARCEL",
+          takeaway,
           name,
           phone,
           note: note.trim() || undefined,
           marketingConsent: consent,
-          items: lines.map((l) => ({ itemId: l.itemId, addOnIds: l.addOnIds, quantity: l.quantity })),
+          items,
         });
         if (res.ok) onPlaced({ id: res.id, number: res.number }, { name: name.trim(), phone });
         else setError({ message: res.error, problems: res.problems });
@@ -329,23 +371,27 @@ function DetailsStep({
   return (
     <form onSubmit={submit} className="space-y-4 px-5 pt-6 pb-6">
       <div className="flex items-start gap-2">
-        <Button type="button" size="icon-sm" variant="ghost" aria-label="Back to your list" onClick={onBack}>
+        <Button type="button" size="icon-sm" variant="ghost" aria-label="Back to the list" onClick={onBack}>
           <ArrowLeft />
         </Button>
         <div>
-          <SheetTitle className="font-heading text-2xl font-bold">Your details</SheetTitle>
+          <SheetTitle className="font-heading text-2xl font-bold">
+            {counter ? "Guest's details" : "Your details"}
+          </SheetTitle>
           <SheetDescription>
-            {KIND_LABEL[kind]} · {count} item{count === 1 ? "" : "s"}. We use these to manage your order and
-            call you when it&apos;s ready.
+            {KIND_LABEL[kind]} · {count} item{count === 1 ? "" : "s"}.{" "}
+            {counter
+              ? "The name is called out when the order is ready. The mobile number is optional."
+              : "We use these to manage your order and call you when it's ready."}
           </SheetDescription>
         </div>
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="g-name">Your name</Label>
+        <Label htmlFor="g-name">{counter ? "Guest's name" : "Your name"}</Label>
         <Input
           id="g-name"
-          autoComplete="name"
+          autoComplete={counter ? "off" : "name"}
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
@@ -355,18 +401,18 @@ function DetailsStep({
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="g-phone">Mobile number</Label>
+        <Label htmlFor="g-phone">{counter ? "Mobile number (optional)" : "Mobile number"}</Label>
         <Input
           id="g-phone"
           type="tel"
           inputMode="numeric"
-          autoComplete="tel-national"
+          autoComplete={counter ? "off" : "tel-national"}
           maxLength={10}
           placeholder="10-digit mobile"
           value={phone}
           onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
           aria-invalid={phone.length === 10 && !phoneOk}
-          required
+          required={!counter}
           className="h-11"
         />
       </div>
@@ -381,17 +427,21 @@ function DetailsStep({
           placeholder="Less spicy, no onion…"
         />
       </div>
-      <label className="flex cursor-pointer items-start gap-3 text-sm">
-        <Checkbox checked={consent} onCheckedChange={(c) => setConsent(c === true)} className="mt-0.5" />
-        <span>Send me offers on WhatsApp / SMS (optional)</span>
-      </label>
-      <p className="text-xs text-muted-foreground">
-        See our{" "}
-        <Link href="/privacy" className="underline underline-offset-2">
-          privacy note
-        </Link>{" "}
-        for how we use your details.
-      </p>
+      {!counter && (
+        <>
+          <label className="flex cursor-pointer items-start gap-3 text-sm">
+            <Checkbox checked={consent} onCheckedChange={(c) => setConsent(c === true)} className="mt-0.5" />
+            <span>Send me offers on WhatsApp / SMS (optional)</span>
+          </label>
+          <p className="text-xs text-muted-foreground">
+            See our{" "}
+            <Link href="/privacy" className="underline underline-offset-2">
+              privacy note
+            </Link>{" "}
+            for how we use your details.
+          </p>
+        </>
+      )}
 
       {error && (
         <div role="alert" className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -412,7 +462,7 @@ function DetailsStep({
         className="h-12 w-full rounded-full bg-cta text-base font-bold text-cta-foreground hover:bg-hh-orange-light"
       >
         {pending && <LoaderCircle className="animate-spin" aria-hidden />}
-        Place order
+        {counter ? "Create order" : "Place order"}
       </Button>
     </form>
   );

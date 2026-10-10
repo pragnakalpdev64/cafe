@@ -1,10 +1,12 @@
 "use client";
 
+import { createContext, useContext } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-// The guest's list of picked items, mirrored live to the dashboard. Customers never
-// see a total; prices are set on the server when the guest places the order.
+// The list of picked items. The guest's list is mirrored live to the dashboard; staff taking
+// an order at the counter use the same menu with a separate list, so the two never mix on a
+// shared device. Nobody sees a total here – prices are set on the server when the order is made.
 
 export type CartLine = {
   key: string;
@@ -56,98 +58,112 @@ const newClientId = () =>
 
 export const lineKey = (itemId: string, addOnIds: string[]) => [itemId, ...[...addOnIds].sort()].join("|");
 
-export const useCart = create<CartState>()(
-  persist(
-    (set) => ({
-      clientId: newClientId(),
-      lines: [],
-      kind: "DINE_IN",
-      guest: null,
-      orders: [],
-      showConfirmed: false,
-      touchedAt: Date.now(),
-      add: (line) =>
-        set((state) => {
-          const key = lineKey(line.itemId, line.addOnIds);
-          const existing = state.lines.find((l) => l.key === key);
-          const lines = existing
-            ? state.lines.map((l) =>
-                l.key === key ? { ...l, quantity: Math.min(20, l.quantity + line.quantity) } : l,
-              )
-            : [...state.lines, { ...line, key }];
-          return { lines, showConfirmed: false, touchedAt: Date.now() };
-        }),
-      setQuantity: (key, quantity) =>
-        set((state) => ({
-          lines:
-            quantity <= 0
-              ? state.lines.filter((l) => l.key !== key)
-              : state.lines.map((l) => (l.key === key ? { ...l, quantity } : l)),
-          touchedAt: Date.now(),
-        })),
-      setAddOns: (key, addOnIds, addOnNames) =>
-        set((state) => {
-          const line = state.lines.find((l) => l.key === key);
-          if (!line) return {};
-          const nextKey = lineKey(line.itemId, addOnIds);
-          if (nextKey === key) return {};
-          const twin = state.lines.find((l) => l.key === nextKey);
-          const lines = twin
-            ? state.lines
-                .filter((l) => l.key !== key)
-                .map((l) =>
-                  l.key === nextKey ? { ...l, quantity: Math.min(20, l.quantity + line.quantity) } : l,
+const createCartStore = (storageKey: string) => {
+  const store = create<CartState>()(
+    persist(
+      (set) => ({
+        clientId: newClientId(),
+        lines: [],
+        kind: "DINE_IN",
+        guest: null,
+        orders: [],
+        showConfirmed: false,
+        touchedAt: Date.now(),
+        add: (line) =>
+          set((state) => {
+            const key = lineKey(line.itemId, line.addOnIds);
+            const existing = state.lines.find((l) => l.key === key);
+            const lines = existing
+              ? state.lines.map((l) =>
+                  l.key === key ? { ...l, quantity: Math.min(20, l.quantity + line.quantity) } : l,
                 )
-            : state.lines.map((l) => (l.key === key ? { ...l, key: nextKey, addOnIds, addOnNames } : l));
-          return { lines, touchedAt: Date.now() };
-        }),
-      setKind: (kind) => set({ kind, touchedAt: Date.now() }),
-      orderPlaced: (order, guest) =>
-        set((state) =>
-          state.orders.some((o) => o.id === order.id)
-            ? { guest: guest ?? state.guest } // the live event may have recorded the order first
-            : {
-                lines: [],
-                guest: guest ?? state.guest,
-                showConfirmed: true,
-                orders: [{ ...order, placedAt: Date.now() }, ...state.orders].slice(0, 10),
-                touchedAt: Date.now(),
-              },
-        ),
-      dismissConfirmed: () => set({ showConfirmed: false }),
-      clear: () => set({ lines: [], touchedAt: Date.now() }),
-    }),
-    {
-      name: "hh-cart",
-      // bump when the stored shape or menu ids change so stale lists are dropped
-      version: 5,
-      migrate: () =>
-        ({
-          clientId: newClientId(),
-          lines: [],
-          kind: "DINE_IN",
-          guest: null,
-          orders: [],
-          showConfirmed: false,
-          touchedAt: Date.now(),
-        }) as unknown as CartState,
-      // Rehydrated in an effect (see CartBar) so server and first client render match.
-      skipHydration: true,
-      onRehydrateStorage: () => (state) => {
-        if (!state) return;
-        if (Date.now() - state.touchedAt > LIST_TTL_MS) state.clear();
-        const orders = state.orders.filter((o) => Date.now() - o.placedAt < KEEP_ORDERS_MS);
-        // the confirmation banner is only useful during the visit
-        const recent = orders[0] && Date.now() - orders[0].placedAt < 3 * 60 * 60 * 1000;
-        // lists saved before dine-in became the default have no kind yet
-        useCart.setState({
-          orders,
-          showConfirmed: state.showConfirmed && !!recent,
-          kind: state.kind ?? "DINE_IN",
-        });
+              : [...state.lines, { ...line, key }];
+            return { lines, showConfirmed: false, touchedAt: Date.now() };
+          }),
+        setQuantity: (key, quantity) =>
+          set((state) => ({
+            lines:
+              quantity <= 0
+                ? state.lines.filter((l) => l.key !== key)
+                : state.lines.map((l) => (l.key === key ? { ...l, quantity } : l)),
+            touchedAt: Date.now(),
+          })),
+        setAddOns: (key, addOnIds, addOnNames) =>
+          set((state) => {
+            const line = state.lines.find((l) => l.key === key);
+            if (!line) return {};
+            const nextKey = lineKey(line.itemId, addOnIds);
+            if (nextKey === key) return {};
+            const twin = state.lines.find((l) => l.key === nextKey);
+            const lines = twin
+              ? state.lines
+                  .filter((l) => l.key !== key)
+                  .map((l) =>
+                    l.key === nextKey ? { ...l, quantity: Math.min(20, l.quantity + line.quantity) } : l,
+                  )
+              : state.lines.map((l) => (l.key === key ? { ...l, key: nextKey, addOnIds, addOnNames } : l));
+            return { lines, touchedAt: Date.now() };
+          }),
+        setKind: (kind) => set({ kind, touchedAt: Date.now() }),
+        orderPlaced: (order, guest) =>
+          set((state) =>
+            state.orders.some((o) => o.id === order.id)
+              ? { guest: guest ?? state.guest } // the live event may have recorded the order first
+              : {
+                  lines: [],
+                  guest: guest ?? state.guest,
+                  showConfirmed: true,
+                  orders: [{ ...order, placedAt: Date.now() }, ...state.orders].slice(0, 10),
+                  touchedAt: Date.now(),
+                },
+          ),
+        dismissConfirmed: () => set({ showConfirmed: false }),
+        clear: () => set({ lines: [], touchedAt: Date.now() }),
+      }),
+      {
+        name: storageKey,
+        // bump when the stored shape or menu ids change so stale lists are dropped
+        version: 5,
+        migrate: () =>
+          ({
+            clientId: newClientId(),
+            lines: [],
+            kind: "DINE_IN",
+            guest: null,
+            orders: [],
+            showConfirmed: false,
+            touchedAt: Date.now(),
+          }) as unknown as CartState,
+        // Rehydrated in an effect (see CartBar) so server and first client render match.
+        skipHydration: true,
+        onRehydrateStorage: () => (state) => {
+          if (!state) return;
+          if (Date.now() - state.touchedAt > LIST_TTL_MS) state.clear();
+          const orders = state.orders.filter((o) => Date.now() - o.placedAt < KEEP_ORDERS_MS);
+          // the confirmation banner is only useful during the visit
+          const recent = orders[0] && Date.now() - orders[0].placedAt < 3 * 60 * 60 * 1000;
+          // lists saved before dine-in became the default have no kind yet
+          store.setState({
+            orders,
+            showConfirmed: state.showConfirmed && !!recent,
+            kind: state.kind ?? "DINE_IN",
+          });
+        },
       },
-    },
-  ),
-);
+    ),
+  );
+  return store;
+};
+
+/** The guest's own list on their phone. */
+export const useCart = createCartStore("hh-cart");
+/** Staff's list while taking a counter order – kept apart from any guest list on the same device. */
+export const useCounterCart = createCartStore("hh-counter-cart");
+
+export type CartStore = typeof useCart;
+
+/** Which list the menu components use; the counter-order page provides the staff one. */
+export const CartStoreContext = createContext<CartStore>(useCart);
+export const useCartStore = () => useContext(CartStoreContext);
 
 export const itemCount = (lines: CartLine[]) => lines.reduce((n, l) => n + l.quantity, 0);

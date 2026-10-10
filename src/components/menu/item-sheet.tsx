@@ -6,7 +6,7 @@ import { VegMark } from "@/components/brand/veg-mark";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { useCart } from "@/lib/cart-store";
+import { useCartStore } from "@/lib/cart-store";
 import { formatINR } from "@/lib/format";
 import type { AddOn, MenuItem } from "@/lib/menu-types";
 import { ItemImage } from "./item-art";
@@ -28,7 +28,13 @@ export function ItemSheet({ item, addOns, orderingEnabled, onClose }: Props) {
       >
         {/* keyed so quantity and add-ons reset for each item */}
         {item && (
-          <ItemSheetBody key={item.id} item={item} addOns={addOns} orderingEnabled={orderingEnabled} onDone={onClose} />
+          <ItemSheetBody
+            key={item.id}
+            item={item}
+            addOns={addOns}
+            orderingEnabled={orderingEnabled}
+            onDone={onClose}
+          />
         )}
       </SheetContent>
     </Sheet>
@@ -46,7 +52,7 @@ function ItemSheetBody({
   orderingEnabled: boolean;
   onDone: () => void;
 }) {
-  const add = useCart((s) => s.add);
+  const add = useCartStore()((s) => s.add);
   const [qty, setQty] = useState(1);
   const [chosen, setChosen] = useState<string[]>([]);
   const options = addOns.filter((a) => item.addOnIds.includes(a.id));
@@ -58,7 +64,12 @@ function ItemSheetBody({
   return (
     <>
       <div className="relative">
-        <ItemImage item={item} sizes="(min-width: 640px) 576px, 100vw" priority className="h-52 w-full sm:h-60" />
+        <ItemImage
+          item={item}
+          sizes="(min-width: 640px) 576px, 100vw"
+          priority
+          className="h-52 w-full sm:h-60"
+        />
         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-popover to-transparent" />
         <span className="absolute top-3 left-1/2 h-1.5 w-12 -translate-x-1/2 rounded-full bg-white/60 sm:hidden" />
       </div>
@@ -74,7 +85,7 @@ function ItemSheetBody({
         <SheetTitle className="mt-2 font-heading text-3xl font-bold">{item.name}</SheetTitle>
         <SheetDescription className="mt-1 text-base">{item.description}</SheetDescription>
 
-        <dl className="tabular mt-4 grid grid-cols-3 gap-2 text-center">
+        <dl className="mt-4 grid grid-cols-3 gap-2 text-center tabular">
           {[
             ["Protein", `${protein} g`],
             ["Energy", `${kcal} kcal`],
@@ -87,12 +98,16 @@ function ItemSheetBody({
           ))}
         </dl>
 
-        <h4 className="mt-6 text-sm font-semibold tracking-wide text-muted-foreground uppercase">Ingredients</h4>
+        <h4 className="mt-6 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+          Ingredients
+        </h4>
         <p className="mt-1">{item.ingredients.join(", ")}</p>
 
         {options.length > 0 && (
           <fieldset className="mt-6">
-            <legend className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">Add-ons</legend>
+            <legend className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+              Add-ons
+            </legend>
             <ul className="mt-2 divide-y divide-border rounded-2xl border border-border">
               {options.map((a) => {
                 const id = `addon-${a.id}`;
@@ -112,7 +127,7 @@ function ItemSheetBody({
                       />
                       <span className="flex-1">
                         {a.name}
-                        <span className="tabular block text-xs text-muted-foreground">
+                        <span className="block tabular text-xs text-muted-foreground">
                           {a.available ? `+${a.protein} g protein · ${a.kcal} kcal` : "Sold out"}
                         </span>
                       </span>

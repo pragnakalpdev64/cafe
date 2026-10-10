@@ -135,6 +135,7 @@ Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm
   ↪ Staff can edit items until the kitchen starts; a guest's extra orders go on the same bill (P2B-04, P2B-09).
 - [x] **P3-09 Counter order** – same form for walk-ins.
   ✅ 8 Oct: "New counter order" on Live orders (`counter-order-dialog.tsx`, reuses the item picker): Dine-in/Takeaway, name required, phone optional (owner's choice), note. `createCounterOrder` prices from the menu, creates it as ACCEPTED with "Counter order taken by …"; with a phone it counts toward the customer. Verified #20 (no phone) → kitchen → served → Bill #16 paid in cash.
+  ✅ 10 Oct (owner: "staff should see the same UI as the customer"): the dialog is replaced by `/admin/counter-order` – the guest `MenuBrowser` in `counter` mode (same cards, search, filters, dish sheet, list bar). Separate list (`useCounterCart`, chosen through `CartStoreContext`) so it never mixes with a guest list on the same device; nothing is mirrored or tracked; details step asks the guest's name (phone optional), then returns to Live orders. Works even when guest ordering is switched off. Verified #23 (Takeaway, 2 dishes, no phone, ₹218).
 - [~] **P3-10 Order history** – filters (date, number, phone, table, type, status).
   ↪ Built in P2B-06.
 - [ ] **P3-11 Kitchen ticket (KOT) print** ⛔ thermal printer – print CSS layouts (bill print is already built).

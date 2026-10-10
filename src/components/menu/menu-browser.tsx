@@ -17,6 +17,7 @@ import {
   type CategorySlug,
   type MenuItem,
 } from "@/lib/menu-types";
+import { CartStoreContext, useCart, useCounterCart } from "@/lib/cart-store";
 import { cn } from "@/lib/utils";
 import { CartBar } from "./cart-bar";
 import { ItemSheet } from "./item-sheet";
@@ -42,9 +43,18 @@ type Props = {
   addOns: AddOn[];
   orderingEnabled: boolean;
   initialItemId?: string;
+  /** staff taking a walk-in guest's order with the same menu (see /admin/counter-order) */
+  counter?: boolean;
 };
 
-export function MenuBrowser({ categories, items, addOns, orderingEnabled, initialItemId }: Props) {
+export function MenuBrowser({
+  categories,
+  items,
+  addOns,
+  orderingEnabled,
+  initialItemId,
+  counter = false,
+}: Props) {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filter[]>([]);
   const [active, setActive] = useState<CategorySlug>(categories[0]?.slug);
@@ -94,178 +104,186 @@ export function MenuBrowser({ categories, items, addOns, orderingEnabled, initia
     setFilters((prev) => (prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]));
 
   return (
-    <div className="min-h-svh bg-background pb-32">
-      <header className="relative overflow-hidden bg-surface px-4 pt-4 pb-14 text-surface-foreground">
-        <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(70% 90% at 90% 0%, rgba(255,138,0,0.38), transparent 60%), radial-gradient(50% 70% at 0% 100%, rgba(34,197,94,0.3), transparent 60%)",
-          }}
-        />
-        <div className="relative mx-auto flex max-w-2xl items-center justify-between">
-          <Link
-            href="/"
-            className="-ml-2 inline-flex items-center gap-1 rounded-full px-2 py-2 text-sm text-white/85 hover:text-white"
-          >
-            <ChevronLeft className="size-4" aria-hidden /> Healthy Hunger
-          </Link>
-          <ThemeToggle className="text-white hover:bg-white/10 hover:text-white" />
-        </div>
-        <div className="relative mx-auto mt-4 max-w-2xl">
-          <div className="flex items-center gap-3">
-            <span className="rounded-2xl bg-white p-1.5 shadow-lg shadow-black/20">
-              <LogoIcon className="h-9" alt="" priority />
-            </span>
-            <div>
-              <h1 className="text-4xl font-bold">Menu</h1>
-              <p className="-mt-1 tagline text-[10px] text-surface-accent">Eat well, live well</p>
-            </div>
+    <CartStoreContext.Provider value={counter ? useCounterCart : useCart}>
+      <div className="min-h-svh bg-background pb-32">
+        <header className="relative overflow-hidden bg-surface px-4 pt-4 pb-14 text-surface-foreground">
+          <div
+            aria-hidden
+            className="absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(70% 90% at 90% 0%, rgba(255,138,0,0.38), transparent 60%), radial-gradient(50% 70% at 0% 100%, rgba(34,197,94,0.3), transparent 60%)",
+            }}
+          />
+          <div className="relative mx-auto flex max-w-2xl items-center justify-between">
+            <Link
+              href={counter ? "/admin" : "/"}
+              className="-ml-2 inline-flex items-center gap-1 rounded-full px-2 py-2 text-sm text-white/85 hover:text-white"
+            >
+              <ChevronLeft className="size-4" aria-hidden /> {counter ? "Live orders" : "Healthy Hunger"}
+            </Link>
+            <ThemeToggle className="text-white hover:bg-white/10 hover:text-white" />
           </div>
-          <p className="mt-3 text-white/85">100% vegetarian · protein from real food</p>
-          {!orderingEnabled && (
-            <p className="mt-3 inline-block rounded-full bg-white/15 px-3 py-1 text-sm">
-              The menu is view-only right now – please order at the counter.
+          <div className="relative mx-auto mt-4 max-w-2xl">
+            <div className="flex items-center gap-3">
+              <span className="rounded-2xl bg-white p-1.5 shadow-lg shadow-black/20">
+                <LogoIcon className="h-9" alt="" priority />
+              </span>
+              <div>
+                <h1 className="text-4xl font-bold">{counter ? "Counter order" : "Menu"}</h1>
+                <p className="-mt-1 tagline text-[10px] text-surface-accent">Eat well, live well</p>
+              </div>
+            </div>
+            <p className="mt-3 text-white/85">
+              {counter
+                ? "Pick the dishes with the guest, then add their name."
+                : "100% vegetarian · protein from real food"}
             </p>
-          )}
-        </div>
-      </header>
-
-      <div className="sticky top-0 z-30 -mt-8 px-4">
-        <div className="mx-auto max-w-2xl rounded-3xl border border-border bg-background/85 p-2 shadow-[0_18px_40px_-26px_rgba(15,92,44,0.5)] backdrop-blur-xl">
-          <label className="relative block">
-            <span className="sr-only">Search the menu</span>
-            <Search
-              className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search paneer, chaat, avocado…"
-              className="h-11 w-full rounded-2xl bg-card pr-10 pl-10 text-base outline-none placeholder:text-muted-foreground focus-visible:ring-3 focus-visible:ring-ring/40"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                className="absolute top-1/2 right-2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full hover:bg-muted"
-                aria-label="Clear search"
-              >
-                <X className="size-4" />
-              </button>
+            {!orderingEnabled && (
+              <p className="mt-3 inline-block rounded-full bg-white/15 px-3 py-1 text-sm">
+                The menu is view-only right now – please order at the counter.
+              </p>
             )}
-          </label>
+          </div>
+        </header>
 
-          <LayoutGroup>
-            <nav aria-label="Categories" className="mt-2 flex [scrollbar-width:none] gap-1 overflow-x-auto">
-              {categories.map((c) => {
-                const isActive = c.slug === active;
-                const empty = !grouped.some((g) => g.slug === c.slug);
+        <div className="sticky top-0 z-30 -mt-8 px-4">
+          <div className="mx-auto max-w-2xl rounded-3xl border border-border bg-background/85 p-2 shadow-[0_18px_40px_-26px_rgba(15,92,44,0.5)] backdrop-blur-xl">
+            <label className="relative block">
+              <span className="sr-only">Search the menu</span>
+              <Search
+                className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search paneer, chaat, avocado…"
+                className="h-11 w-full rounded-2xl bg-card pr-10 pl-10 text-base outline-none placeholder:text-muted-foreground focus-visible:ring-3 focus-visible:ring-ring/40"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute top-1/2 right-2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full hover:bg-muted"
+                  aria-label="Clear search"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
+            </label>
+
+            <LayoutGroup>
+              <nav aria-label="Categories" className="mt-2 flex [scrollbar-width:none] gap-1 overflow-x-auto">
+                {categories.map((c) => {
+                  const isActive = c.slug === active;
+                  const empty = !grouped.some((g) => g.slug === c.slug);
+                  return (
+                    <button
+                      key={c.slug}
+                      type="button"
+                      disabled={empty}
+                      onClick={() => jumpTo(c.slug)}
+                      aria-current={isActive ? "true" : undefined}
+                      className={cn(
+                        "relative shrink-0 rounded-full px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-35",
+                        isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {c.name}
+                      {isActive && (
+                        <motion.span
+                          layoutId="cat-underline"
+                          className="absolute inset-x-3 -bottom-0.5 h-[3px] rounded-full bg-brand"
+                          transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+            </LayoutGroup>
+
+            <div className="mt-2 flex [scrollbar-width:none] gap-2 overflow-x-auto pb-0.5">
+              {FILTERS.map((f) => {
+                const on = filters.includes(f.id);
                 return (
                   <button
-                    key={c.slug}
+                    key={f.id}
                     type="button"
-                    disabled={empty}
-                    onClick={() => jumpTo(c.slug)}
-                    aria-current={isActive ? "true" : undefined}
+                    aria-pressed={on}
+                    onClick={() => toggleFilter(f.id)}
                     className={cn(
-                      "relative shrink-0 rounded-full px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-35",
-                      isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                      "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                      on
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-secondary/60 text-secondary-foreground hover:bg-secondary",
                     )}
                   >
-                    {c.name}
-                    {isActive && (
-                      <motion.span
-                        layoutId="cat-underline"
-                        className="absolute inset-x-3 -bottom-0.5 h-[3px] rounded-full bg-brand"
-                        transition={{ type: "spring", stiffness: 500, damping: 40 }}
-                      />
+                    <f.icon className="size-3.5" aria-hidden />
+                    {f.label}
+                    {f.hint && (
+                      <span className={cn("text-xs", on ? "opacity-80" : "text-muted-foreground")}>
+                        {f.hint}
+                      </span>
                     )}
                   </button>
                 );
               })}
-            </nav>
-          </LayoutGroup>
-
-          <div className="mt-2 flex [scrollbar-width:none] gap-2 overflow-x-auto pb-0.5">
-            {FILTERS.map((f) => {
-              const on = filters.includes(f.id);
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => toggleFilter(f.id)}
-                  className={cn(
-                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
-                    on
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-secondary/60 text-secondary-foreground hover:bg-secondary",
-                  )}
-                >
-                  <f.icon className="size-3.5" aria-hidden />
-                  {f.label}
-                  {f.hint && (
-                    <span className={cn("text-xs", on ? "opacity-80" : "text-muted-foreground")}>
-                      {f.hint}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            </div>
           </div>
         </div>
-      </div>
 
-      <main className="mx-auto max-w-2xl px-4 pt-6">
-        {grouped.length === 0 && (
-          <div className="rounded-3xl border border-dashed border-border p-10 text-center text-muted-foreground">
-            Nothing matches. Try clearing a filter.
-          </div>
-        )}
-        {grouped.map((group) => (
-          <section
-            key={group.slug}
-            data-category={group.slug}
-            ref={(el) => {
-              if (el) sectionRefs.current.set(group.slug, el);
-              else sectionRefs.current.delete(group.slug);
-            }}
-            className="mb-10"
-            aria-labelledby={`cat-${group.slug}`}
-          >
-            <h2 id={`cat-${group.slug}`} className="mb-4 text-2xl font-bold">
-              {group.name}
-            </h2>
-            <div className="grid gap-5">
-              {/* initial={false}: cards are visible in the server HTML, so the menu paints before JS loads */}
-              <AnimatePresence mode="popLayout" initial={false}>
-                {group.items.map((item) => (
-                  <MenuItemCard
-                    key={item.id}
-                    item={item}
-                    orderingEnabled={orderingEnabled}
-                    onOpen={setOpenItem}
-                  />
-                ))}
-              </AnimatePresence>
+        <main className="mx-auto max-w-2xl px-4 pt-6">
+          {grouped.length === 0 && (
+            <div className="rounded-3xl border border-dashed border-border p-10 text-center text-muted-foreground">
+              Nothing matches. Try clearing a filter.
             </div>
-          </section>
-        ))}
+          )}
+          {grouped.map((group) => (
+            <section
+              key={group.slug}
+              data-category={group.slug}
+              ref={(el) => {
+                if (el) sectionRefs.current.set(group.slug, el);
+                else sectionRefs.current.delete(group.slug);
+              }}
+              className="mb-10"
+              aria-labelledby={`cat-${group.slug}`}
+            >
+              <h2 id={`cat-${group.slug}`} className="mb-4 text-2xl font-bold">
+                {group.name}
+              </h2>
+              <div className="grid gap-5">
+                {/* initial={false}: cards are visible in the server HTML, so the menu paints before JS loads */}
+                <AnimatePresence mode="popLayout" initial={false}>
+                  {group.items.map((item) => (
+                    <MenuItemCard
+                      key={item.id}
+                      item={item}
+                      orderingEnabled={orderingEnabled}
+                      onOpen={setOpenItem}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </section>
+          ))}
 
-        <p className="mt-4 rounded-2xl bg-secondary/50 p-4 text-sm text-muted-foreground">{NUTRITION_NOTE}</p>
-      </main>
+          <p className="mt-4 rounded-2xl bg-secondary/50 p-4 text-sm text-muted-foreground">
+            {NUTRITION_NOTE}
+          </p>
+        </main>
 
-      <ItemSheet
-        item={openItem}
-        addOns={addOns}
-        orderingEnabled={orderingEnabled}
-        onClose={() => setOpenItem(null)}
-      />
-      {orderingEnabled && <CartBar items={items} addOns={addOns} />}
-    </div>
+        <ItemSheet
+          item={openItem}
+          addOns={addOns}
+          orderingEnabled={orderingEnabled}
+          onClose={() => setOpenItem(null)}
+        />
+        {orderingEnabled && <CartBar items={items} addOns={addOns} counter={counter} />}
+      </div>
+    </CartStoreContext.Provider>
   );
 }

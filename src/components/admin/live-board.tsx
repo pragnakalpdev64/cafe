@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, BellOff, Eye, Phone, Plus, Trash2, Utensils } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { removeSelection } from "@/app/admin/(dashboard)/actions";
@@ -8,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import type { LiveBoard as LiveBoardData, LiveSelection } from "@/lib/data/live";
 import type { PublicMenu } from "@/lib/data/menu";
 import { cn } from "@/lib/utils";
-import { CounterOrderDialog } from "./counter-order-dialog";
 import { OrdersPanel } from "./orders-panel";
 
 type Connection = "live" | "reconnecting";
@@ -42,7 +42,6 @@ export function LiveBoard({ initial, menu }: { initial: LiveBoardData; menu: Pub
   const [skew, setSkew] = useState(() => Date.now() - new Date(initial.serverTime).getTime());
   const [now, setNow] = useState(() => Date.now());
   const [soundOn, setSoundOn] = useState(false);
-  const [counterOrder, setCounterOrder] = useState(false);
   const audio = useRef<AudioContext | null>(null);
   const knownNew = useRef(new Set(initial.orders.filter((o) => o.status === "NEW").map((o) => o.id)));
 
@@ -117,8 +116,10 @@ export function LiveBoard({ initial, menu }: { initial: LiveBoardData; menu: Pub
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" className="rounded-full" onClick={() => setCounterOrder(true)}>
-            <Plus data-icon="inline-start" /> New counter order
+          <Button asChild size="sm" className="rounded-full">
+            <Link href="/admin/counter-order">
+              <Plus data-icon="inline-start" /> New counter order
+            </Link>
           </Button>
           <Button
             variant={soundOn ? "secondary" : "outline"}
@@ -150,13 +151,6 @@ export function LiveBoard({ initial, menu }: { initial: LiveBoardData; menu: Pub
       </div>
 
       <OrdersPanel orders={data.orders} bills={data.bills} menu={menu} onChanged={refresh} />
-      <CounterOrderDialog
-        open={counterOrder}
-        menu={menu}
-        onClose={() => setCounterOrder(false)}
-        onCreated={() => void refresh()}
-      />
-
       <section aria-labelledby="picking-h" className="space-y-3">
         <h2 id="picking-h" className="flex items-center gap-2 text-lg font-bold">
           <Eye className="size-5 text-hh-green dark:text-hh-green-light" aria-hidden /> Selecting now
