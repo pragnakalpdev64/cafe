@@ -15,7 +15,7 @@ Everything needed to take and bill orders is built and tested on a test computer
 
 ## What works today
 ### Guests
-- Open the menu on their phone from the QR – it loads in under 2 seconds on 4G.
+- Open the menu on their phone from the QR – it loads in under 2 seconds on 4G. It has the café's real menu: salads and bowls, chaat, toasts, oats, smoothies, tea and coffee.
 - Browse by category, search, and filter by High protein, Light or Bestseller. Every dish shows the veg mark, protein, calories and price.
 - Pick dishes and add-ons, then order with their name and number. Their phone remembers the details for next time.
 - Add an optional note for the kitchen and choose whether to receive offers.

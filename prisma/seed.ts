@@ -4,7 +4,7 @@ import "dotenv/config";
 import { hash } from "@node-rs/argon2";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { addOns, cafe, categories, menuItems, todaysPickId } from "./seed-data";
+import { addOns, cafe, categories, hiddenUntilPriced, menuItems, todaysPickId } from "./seed-data";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 const paise = (rupees: number) => Math.round(rupees * 100);
@@ -52,6 +52,7 @@ async function main() {
         kcal: m.kcal,
         isBestseller: m.tags.includes("bestseller"),
         available: m.available,
+        visible: !hiddenUntilPriced.includes(m.id),
         sortOrder: i,
         addOns: { connect: m.addOnIds.map((id) => ({ id })) },
       },
@@ -108,9 +109,7 @@ async function main() {
     }
   }
 
-  console.log(
-    `Seeded ${categories.length} categories, ${menuItems.length} items, ${addOns.length} add-ons, 6 tables.`,
-  );
+  console.log(`Seeded ${categories.length} categories, ${menuItems.length} items, ${addOns.length} add-ons.`);
 }
 
 main()

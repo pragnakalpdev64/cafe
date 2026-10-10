@@ -23,9 +23,10 @@ Legend: **Files** = where the work goes · **Done when** = the check that closes
   Plain: Swap the cartoon-style 3D salad on the home page for a real, photo-scanned dish so it looks appetising.
 
 ## Phase 1 – Foundation
-- [ ] **P1-01 Load the real menu** ⛔ final menu/prices – `prisma/seed.ts`.
-  Done when: `pnpm db:seed` loads all categories/items/add-ons; `/menu` shows them.
-  Plain: Load the café's final menu and prices. (The owner can also type them in under Menu in the dashboard.)
+- [x] **P1-01 Load the real menu** – `prisma/seed-data.ts`, `scripts/load-menu.ts`.
+  ✅ 10 Oct: the owner's six printed menus + Tea & Coffee card → 40 dishes in 7 categories and 12 add-ons. `pnpm menu:load` shows what would change, `--yes` applies it (overwrites the menu from the file, keeps photos, hides dishes not in the file). 31 dishes live; 12 old placeholder dishes hidden (kept for order history).
+- [ ] **P1-10 Prices for 9 hidden dishes** ⛔ prices from the owner – the printed menus show no price for the 3 sandwiches and 3 overnight oats, and "MRP" for Diet Coke, Coke Zero and water.
+  Plain: Nine dishes are loaded but hidden from guests until the owner types a price for each (Menu → edit the dish → Price, then switch on "Show on menu").
 - [x] **P1-02 Login page + actions** – `src/app/admin/login/page.tsx`, `src/app/admin/login/actions.ts`.
   Zod-validated, rate-limited (`rate-limit.ts`), sets session cookie; logout action.
   Done when: seeded owner can log in/out; 6th bad attempt in the window is refused.

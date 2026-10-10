@@ -171,10 +171,10 @@ Online UPI (Razorpay), WhatsApp updates, kitchen screen, SSE instead of polling,
 Resolved: brand colours (new green/orange brand, 4 Oct 2026); dine-in needs name + phone, no tax for now, one bill per table visit (5 Oct 2026).
 | Question (from goal doc) | What the answer unlocks |
 |---|---|
-| Final menu and prices, including the Oats bowl items | Loading the real menu (the owner can also type it in under Menu) |
-| Two unclear dish names: is "…6ole…" the Chole Bowl? Is "Chipotle Avocado Cucumber" one sandwich or two? | Loading the real menu |
+| Prices for the 3 sandwiches, the 3 overnight oats, and the MRP of Diet Coke, Coke Zero and water | Showing those 9 dishes to guests (they are loaded but hidden) |
+| Are any of the 12 old dishes still sold (e.g. Chole Bowl, Rajma Tikki, Lemon Iced Tea)? They are not on the printed menus, so they were hidden | Showing them again, with real prices |
 | Café address, phone, WhatsApp, Instagram and opening hours | The home page and printed bills |
-| Is the café GST-registered? If yes, the GSTIN | Showing tax on bills (none is shown until then) |
+| Is the café GST-registered? If yes, the GSTIN. The toast and smoothie menus say "prices exclusive of 5% GST" | Showing tax on bills (none is charged or shown until then) |
 | Is there a thermal printer at the counter or in the kitchen? | Kitchen tickets and the receipt size |
 | How many staff logins are needed at launch? | Setting up staff accounts |
 | The web address (domain) and the opening date | Going live, and the launch timeline |
