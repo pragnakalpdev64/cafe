@@ -42,6 +42,34 @@ enum PaymentMethod {
   CARD
 }
 
+/// What an expense was for (owner-facing names live in src/lib/expenses.ts).
+enum ExpenseCategory {
+  VEGETABLES_FRUITS
+  GROCERY
+  DAIRY
+  PACKAGING
+  GAS
+  ELECTRICITY_WATER
+  RENT
+  SALARIES
+  REPAIRS
+  OTHER
+}
+
+/// How an expense was paid. CASH comes out of the counter drawer.
+enum ExpensePayment {
+  CASH
+  UPI
+  CARD
+  BANK
+}
+
+/// Where a day's opening cash came from.
+enum CashOpening {
+  ENTERED // counted by staff in the morning
+  CARRIED // nobody entered it – taken from the last day's closing
+}
+
 model Category {
   id        String     @id @default(cuid())
   name      String
@@ -211,6 +239,9 @@ model StaffUser {
   counterOrders  Order[]          @relation("CounterOrders")
   billsCreated   Bill[]           @relation("BillsCreated")
   billsVoided    Bill[]           @relation("BillsVoided")
+  expenses       Expense[]        @relation("ExpensesAdded")
+  cashDaysOpened CashDay[]        @relation("CashDaysOpened")
+  cashDaysClosed CashDay[]        @relation("CashDaysClosed")
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 }
@@ -252,4 +283,42 @@ model Selection {
   updatedAt DateTime        @updatedAt
 
   @@index([updatedAt])
+}
+
+/// Money the café spent: supplies, bills, salaries … Staff add; the owner edits or deletes.
+model Expense {
+  id          String          @id @default(cuid())
+  paidAt      DateTime        @default(now())
+  amountPaise Int
+  category    ExpenseCategory
+  paidWith    ExpensePayment
+  paidTo      String? // vendor or person
+  note        String?
+  createdById String?
+  createdBy   StaffUser?      @relation("ExpensesAdded", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([paidAt])
+}
+
+/// The cash drawer for one café day: opening cash in the morning, the count at closing.
+/// Totals are copied in when the day is closed, so later edits don't change a closed day.
+model CashDay {
+  id                String      @id @default(cuid())
+  day               String      @unique // yyyy-mm-dd, café time (IST)
+  openingPaise      Int
+  openingSource     CashOpening
+  openedById        String?
+  openedBy          StaffUser?  @relation("CashDaysOpened", fields: [openedById], references: [id], onDelete: SetNull)
+  closedAt          DateTime?
+  cashSalesPaise    Int? // snapshot at closing
+  cashExpensesPaise Int? // snapshot at closing
+  expectedPaise     Int? // opening + cash sales − cash expenses, at closing
+  countedPaise      Int? // what staff counted in the drawer
+  closeNote         String?
+  closedById        String?
+  closedBy          StaffUser?  @relation("CashDaysClosed", fields: [closedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 }

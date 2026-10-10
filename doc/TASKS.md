@@ -5,7 +5,7 @@ Tick `[x]` when done; `[~]` = covered by other work or no longer needed (say why
 Every open task has a `Plain:` line – what it means for the café, in everyday words – which the status board shows. Keep [`STATUS.md`](./STATUS.md) (what works today, for the owner) in step with finished work.
 Status board (for the team): https://claude.ai/artifact/GC4ttoJYv6kkz93LDh6oAa – after ticking tasks, regenerate with `node scripts/status-board.mjs <scratch>/build-board.html` and republish to that URL.
 
-**Next up (in order):** P5-01 → P5-03 → P5-04 → P5-05 → P3-09 → P3-13. P5-02 needs the domain; P0-02 needs a 3D scan.
+**Next up (in order):** P5-01 → P5-03 → P5-04 → P5-05 → P3-13. P5-02 needs the domain; P0-02 needs a 3D scan.
 Phases and design reasoning live in [`PLAN.md`](./PLAN.md); scope in [`goal`](./goal).
 
 Legend: **Files** = where the work goes · **Done when** = the check that closes it · ⛔ = blocked by an open question (PLAN.md §5).
@@ -132,8 +132,8 @@ Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm
   ↪ Cash / UPI / Card on the bill (P2B-05).
 - [~] **P3-08 Add items to an open order**
   ↪ Staff can edit items until the kitchen starts; a guest's extra orders go on the same bill (P2B-04, P2B-09).
-- [ ] **P3-09 Counter order** – same form for walk-ins.
-  Plain: Staff can enter an order on the dashboard for a guest who doesn't want to use their phone.
+- [x] **P3-09 Counter order** – same form for walk-ins.
+  ✅ 8 Oct: "New counter order" on Live orders (`counter-order-dialog.tsx`, reuses the item picker): Dine-in/Takeaway, name required, phone optional (owner's choice), note. `createCounterOrder` prices from the menu, creates it as ACCEPTED with "Counter order taken by …"; with a phone it counts toward the customer. Verified #20 (no phone) → kitchen → served → Bill #16 paid in cash.
 - [~] **P3-10 Order history** – filters (date, number, phone, table, type, status).
   ↪ Built in P2B-06.
 - [ ] **P3-11 Kitchen ticket (KOT) print** ⛔ thermal printer – print CSS layouts (bill print is already built).
@@ -156,6 +156,12 @@ Flow: guest picks items (**staff see it live**) → guest taps **Confirm – I'm
   ✅ 5 Oct: per-table QR screen. 7 Oct: replaced by `/admin/qr` + `/admin/print/qr` – one café QR, 4 cards per A4 (warns while SITE_URL is localhost).
 - [x] **P4-06 Settings** – café details, ordering on/off, tax %, staff accounts (owner).
   ✅ 5 Oct: `/admin/settings` – Café (details, hours, Today's pick, "Guests can make lists" switch), Staff logins (create with one-time password, new password, switch off – both end their sessions), My password. Tax % left out while there are no totals.
+
+## Phase 4B – Cash & expenses (owner, 8 Oct 2026)
+- [x] **P4B-01 Expenses** – record what the café spends; staff add, owner edits/deletes and sees any period; in Reports.
+  ✅ 8 Oct: `Expense` model (category, paid with cash/UPI/card/bank, paid to, note); `/admin/expenses` (staff: add + today; owner: date ranges, totals by category, edit, delete); `src/lib/expenses.ts` labels; `ExpenseSchema` (tested). Reports: Expenses, Sales minus expenses, "Where the money went". A cash expense on a day whose drawer is closed is refused.
+- [x] **P4B-02 Cash counter** – open and close the drawer each day; opening carries over when nobody enters it.
+  ✅ 8 Oct: `CashDay` model + `/admin/cash`. Expected = opening + cash sales − cash expenses (`src/lib/cash.ts`, tested). Not entered → carried from the last day: its closing count if closed, otherwise its opening + its net cash, plus any days in between. Closing saves the day's totals (snapshot) with the count; live "Short by / Extra" preview while typing. Owner: last 14 days and reopen today. Verified: ₹2,000 + ₹737 − ₹450 = ₹2,287, counted ₹2,250 → short ₹37; carry tested both ways (₹1,500 closed count; ₹1,000 + ₹1,694 = ₹2,694 when left open).
 
 ## Phase 5 – Launch
 - [ ] **P5-01 Package for the server** – Next.js + Postgres + Caddy; production env.

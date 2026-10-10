@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { requireUser } from "@/lib/auth/dal";
 import { getReport } from "@/lib/data/reports";
+import { EXPENSE_CATEGORY } from "@/lib/expenses";
 import { formatINR } from "@/lib/format";
 import { toRupees } from "@/lib/money";
 import { isoDay, RANGE_PRESETS, resolveRange } from "@/lib/reports";
@@ -43,6 +44,12 @@ export default async function ReportsPage({ searchParams }: PageProps<"/admin/re
       `${t.bills} bill${t.bills === 1 ? "" : "s"}`,
     ]),
     ["Cancelled orders", String(r.cancelledOrders)],
+    ["Expenses", rupees(r.expensesPaise), "supplies, bills, salaries…"],
+    [
+      r.salesPaise >= r.expensesPaise ? "Sales minus expenses" : "Spent more than sales",
+      rupees(Math.abs(r.salesPaise - r.expensesPaise)),
+      "before tax, for this period",
+    ],
   ];
 
   return (
@@ -109,6 +116,22 @@ export default async function ReportsPage({ searchParams }: PageProps<"/admin/re
           </div>
         ))}
       </dl>
+
+      {r.expensesByCategory.length > 0 && (
+        <section className="rounded-3xl border border-border bg-card p-4" aria-labelledby="spend-h">
+          <h3 id="spend-h" className="mb-2 font-bold">
+            Where the money went
+          </h3>
+          <ul className="flex flex-wrap gap-2 text-sm">
+            {r.expensesByCategory.map((e) => (
+              <li key={e.category} className="rounded-full bg-secondary px-3 py-1 text-secondary-foreground">
+                {EXPENSE_CATEGORY[e.category]}{" "}
+                <span className="tabular font-semibold">{rupees(e.paise)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <SalesBars title="Sales by hour" buckets={r.hours} labelEvery={3} />

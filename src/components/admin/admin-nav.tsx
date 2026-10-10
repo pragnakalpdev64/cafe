@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Banknote,
   BarChart3,
   BookOpen,
   ClipboardList,
@@ -8,6 +9,7 @@ import {
   LogOut,
   Menu as MenuIcon,
   QrCode,
+  Receipt,
   Settings,
   Users,
 } from "lucide-react";
@@ -27,6 +29,8 @@ const ICONS = {
   orders: ClipboardList,
   menu: BookOpen,
   history: History,
+  cash: Banknote,
+  expenses: Receipt,
   qr: QrCode,
   customers: Users,
   reports: BarChart3,

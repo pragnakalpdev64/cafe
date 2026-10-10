@@ -24,18 +24,22 @@ Everything needed to take and bill orders is built and tested on a test computer
 
 ### Staff
 - New orders appear instantly with a chime. Accept them, change items, or cancel with a reason.
+- Take an order at the counter for a walk-in guest – name needed, phone optional.
 - Move orders along: send to the kitchen, then Served (dine-in) or Ready to collect and Picked up (takeaway).
 - See what guests are choosing before they order.
 - Make the bill – one bill for a guest's whole visit, even across several orders. Mark it paid by cash, UPI or card, and print a receipt.
 - Void a bill made by mistake, with a reason. Bill numbers never skip.
 - Find any order or bill by number, phone, name or date, and reprint it.
 - Mark a dish sold out in one tap.
+- Cash counter: enter the cash in the drawer each morning (or it carries over from last night), and count it at closing. The app shows what should be there and whether it's short or extra.
+- Record expenses – vegetables, groceries, gas, salaries and so on – and how they were paid. Cash paid from the drawer is taken off the cash counter automatically.
 - A clear warning shows if the internet drops, and the screen catches up when it's back.
 
 ### Owner
 - Edit the menu: categories, dishes, prices, photos, add-ons, and hide or show items.
 - Customers: search the list and open a profile with visits, spending, favourite dishes and staff notes.
 - Stop offers for a guest, delete a guest's data when they ask, and download the customer list for Excel.
-- Reports: sales by hour, day and month, dine-in vs takeaway, top dishes, and how many guests are regulars.
+- Reports: sales by hour, day and month, dine-in vs takeaway, top dishes, how many guests are regulars, expenses by category, and sales minus expenses.
+- See every expense for any period, and change or delete one. See past days at the cash counter and reopen today if a count was wrong.
 - Print the café QR cards.
 - Settings: café details and hours, Today's pick, switch ordering on or off, and staff logins.

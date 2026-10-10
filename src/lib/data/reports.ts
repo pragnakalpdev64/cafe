@@ -1,5 +1,6 @@
 import "server-only";
 import { Prisma } from "@/generated/prisma/client";
+import type { ExpenseCategory } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { type Bucket, fillDays, fillHours, fillMonths, type ReportRange } from "@/lib/reports";
 
@@ -22,6 +23,9 @@ export type Report = {
   days: Bucket[];
   months: Bucket[];
   topItems: { name: string; quantity: number; paise: number }[];
+  expensesPaise: number;
+  /** biggest first */
+  expensesByCategory: { category: ExpenseCategory; paise: number }[];
 };
 
 export async function getReport(range: ReportRange): Promise<Report> {
@@ -29,7 +33,7 @@ export async function getReport(range: ReportRange): Promise<Report> {
   const inRange = Prisma.sql`${PAID} AND b."paidAt" >= ${start} AND b."paidAt" < ${end}`;
   const monthsFrom = new Date(end.getFullYear(), end.getMonth() - 11, 1);
 
-  const [byType, cancelled, guests, hours, days, months, top] = await Promise.all([
+  const [byType, cancelled, guests, hours, days, months, top, spent] = await Promise.all([
     db.$queryRaw<{ type: "DINE_IN" | "PARCEL"; paise: bigint | null; bills: bigint }[]>`
       SELECT b."type", SUM(b."totalPaise") AS paise, COUNT(*) AS bills
       FROM "Bill" b WHERE ${inRange} GROUP BY b."type"`,
@@ -60,7 +64,15 @@ export async function getReport(range: ReportRange): Promise<Report> {
       FROM "OrderItem" i JOIN "Order" o ON o."id" = i."orderId" JOIN "Bill" b ON b."id" = o."billId"
       WHERE ${inRange}
       GROUP BY i."itemName" ORDER BY quantity DESC, paise DESC LIMIT 10`,
+    db.expense.groupBy({
+      by: ["category"],
+      where: { paidAt: { gte: start, lt: end } },
+      _sum: { amountPaise: true },
+    }),
   ]);
+  const expensesByCategory = spent
+    .map((e) => ({ category: e.category, paise: e._sum.amountPaise ?? 0 }))
+    .sort((a, b) => b.paise - a.paise);
 
   const types = byType.map((t) => ({ type: t.type, paise: Number(t.paise ?? 0), bills: Number(t.bills) }));
   return {
@@ -75,5 +87,7 @@ export async function getReport(range: ReportRange): Promise<Report> {
     days: fillDays(rows(days), range),
     months: fillMonths(rows(months), new Date(end.getTime() - 1)),
     topItems: top.map((t) => ({ name: t.name, quantity: Number(t.quantity), paise: Number(t.paise) })),
+    expensesPaise: expensesByCategory.reduce((s, e) => s + e.paise, 0),
+    expensesByCategory,
   };
 }
