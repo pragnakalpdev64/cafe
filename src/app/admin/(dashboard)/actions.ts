@@ -18,6 +18,7 @@ import { billTotals, priceLines } from "@/lib/pricing";
 import { publish } from "@/lib/realtime";
 import { maskPhone } from "@/lib/phone-mask";
 import { RECEIPT_SMS_ENABLED, receiptMessage, smsLink } from "@/lib/receipt";
+import { type CounterOrderInput, CounterOrderSchema } from "@/lib/validators/place-order";
 import { SelectionLinesSchema } from "@/lib/validators/selection";
 
 type Fail = { ok: false; error: string; problems?: string[] };
@@ -29,6 +30,70 @@ async function staff(): Promise<CurrentUser | Fail> {
     if (e instanceof AuthError) return { ok: false, error: e.message };
     throw e;
   }
+}
+
+/**
+ * Staff take a walk-in guest's order at the counter (P3-09). Prices come from the menu; it starts
+ * as ACCEPTED because staff took it themselves. The phone is optional – with one, the visit counts
+ * toward the customer's record.
+ */
+export async function createCounterOrder(
+  input: CounterOrderInput,
+): Promise<{ ok: true; number: number } | Fail> {
+  const me = await staff();
+  if ("ok" in me) return me;
+  const parsed = CounterOrderSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const { takeaway, name, phone, note, items } = parsed.data;
+
+  const priced = priceLines(items, await loadMenuPrices(items.map((i) => i.itemId)));
+  if (!priced.ok) return { ok: false, error: "Fix these first:", problems: priced.problems };
+  const totals = billTotals(priced.subtotalPaise, (await getCafeDetails()).taxBasisPoints);
+
+  const order = await db.$transaction(async (tx) => {
+    const customer = phone
+      ? await tx.customer.upsert({
+          where: { phone },
+          create: { name, phone },
+          update: { name, lastVisitAt: new Date() },
+          select: { id: true },
+        })
+      : null;
+    return tx.order.create({
+      data: {
+        type: takeaway ? "PARCEL" : "DINE_IN",
+        status: "ACCEPTED",
+        customerId: customer?.id ?? null,
+        customerName: name,
+        customerPhone: phone || null,
+        note: note || null,
+        subtotalPaise: totals.subtotalPaise,
+        taxPaise: totals.taxPaise,
+        totalPaise: totals.totalPaise,
+        createdById: me.id,
+        items: {
+          create: priced.lines.map((l) => ({
+            menuItemId: l.menuItemId,
+            itemName: l.itemName,
+            unitPricePaise: l.unitPricePaise,
+            quantity: l.quantity,
+            addOns: l.addOns,
+            lineTotalPaise: l.lineTotalPaise,
+          })),
+        },
+        statusLogs: {
+          create: [
+            { toStatus: "NEW", changedById: me.id, note: `Counter order taken by ${me.name}` },
+            { fromStatus: "NEW", toStatus: "ACCEPTED", changedById: me.id },
+          ],
+        },
+      },
+      select: { id: true, number: true },
+    });
+  });
+
+  await publish({ type: "order", orderId: order.id, number: order.number, status: "ACCEPTED" });
+  return { ok: true, number: order.number };
 }
 
 /** Guest left without ordering – take their list off the board. */

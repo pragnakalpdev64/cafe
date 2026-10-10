@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PlaceOrderSchema } from "@/lib/validators/place-order";
+import { CounterOrderSchema, PlaceOrderSchema } from "@/lib/validators/place-order";
 import { GuestSelectionSchema } from "@/lib/validators/selection";
 
 const id = "6f1c2a4e-8b3d-4c5e-9f7a-1b2c3d4e5f60";
@@ -40,5 +40,21 @@ describe("PlaceOrderSchema", () => {
     expect(PlaceOrderSchema.safeParse({ ...base, phone: "1234567890" }).success).toBe(false);
     expect(PlaceOrderSchema.safeParse({ ...base, name: "P" }).success).toBe(false);
     expect(PlaceOrderSchema.safeParse({ ...base, items: [] }).success).toBe(false);
+  });
+});
+
+describe("CounterOrderSchema", () => {
+  const base = { takeaway: false, name: "Walk-in Ravi", items };
+
+  it("takes a name without a phone", () => {
+    expect(CounterOrderSchema.parse(base).phone).toBeUndefined();
+    expect(CounterOrderSchema.parse({ ...base, phone: "" }).phone).toBe("");
+    expect(CounterOrderSchema.parse({ ...base, phone: "+91 98765 43210" }).phone).toBe("9876543210");
+  });
+
+  it("still checks the name, a typed phone and the items", () => {
+    expect(CounterOrderSchema.safeParse({ ...base, name: "R" }).success).toBe(false);
+    expect(CounterOrderSchema.safeParse({ ...base, phone: "12345" }).success).toBe(false);
+    expect(CounterOrderSchema.safeParse({ ...base, items: [] }).success).toBe(false);
   });
 });
